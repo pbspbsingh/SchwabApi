@@ -65,90 +65,90 @@ pub struct LevelOneEquityEvent {
     pub total_volume: Option<u64>,
     /// Field 9
     pub last_size: Option<u64>,
-    /// Field 10 — milliseconds since epoch
-    pub quote_time: Option<DateTime<Utc>>,
-    /// Field 11 — milliseconds since epoch
-    pub trade_time: Option<DateTime<Utc>>,
-    /// Field 12
+    /// Field 10
     pub high_price: Option<f64>,
-    /// Field 13
+    /// Field 11
     pub low_price: Option<f64>,
-    /// Field 14
-    pub bid_tick: Option<String>,
-    /// Field 15
+    /// Field 12
     pub close_price: Option<f64>,
-    /// Field 16
+    /// Field 13
     pub exchange_id: Option<String>,
-    /// Field 17
+    /// Field 14
     pub marginable: Option<bool>,
-    /// Field 18
-    pub shortable: Option<bool>,
-    /// Field 19
-    pub island_bid_price: Option<f64>,
-    /// Field 20
-    pub island_ask_price: Option<f64>,
-    /// Field 21
-    pub island_volume: Option<u64>,
-    /// Field 22
-    pub quote_day: Option<i64>,
-    /// Field 23
-    pub trade_day: Option<i64>,
-    /// Field 24
-    pub volatility: Option<f64>,
-    /// Field 25
+    /// Field 15
     pub description: Option<String>,
-    /// Field 26
+    /// Field 16
     pub last_id: Option<String>,
-    /// Field 27
-    pub digits: Option<i64>,
-    /// Field 28
+    /// Field 17
     pub open_price: Option<f64>,
-    /// Field 29
+    /// Field 18
     pub net_change: Option<f64>,
-    /// Field 30
+    /// Field 19
     pub week52_high: Option<f64>,
-    /// Field 31
+    /// Field 20
     pub week52_low: Option<f64>,
-    /// Field 32
+    /// Field 21
     pub pe_ratio: Option<f64>,
-    /// Field 33
+    /// Field 22
     pub dividend_amount: Option<f64>,
-    /// Field 34
+    /// Field 23
     pub dividend_yield: Option<f64>,
-    /// Field 35
-    pub island_bid_size: Option<u64>,
-    /// Field 36
-    pub island_ask_size: Option<u64>,
-    /// Field 37
+    /// Field 24
     pub nav: Option<f64>,
-    /// Field 38
-    pub fund_price: Option<f64>,
-    /// Field 39
+    /// Field 25
     pub exchange_name: Option<String>,
-    /// Field 40
+    /// Field 26
     pub dividend_date: Option<String>,
-    /// Field 41
+    /// Field 27
     pub is_regular_market_quote: Option<bool>,
-    /// Field 42
+    /// Field 28
     pub is_regular_market_trade: Option<bool>,
-    /// Field 43 — milliseconds since epoch
+    /// Field 29
     pub regular_market_last_price: Option<f64>,
-    /// Field 44
+    /// Field 30
     pub regular_market_last_size: Option<u64>,
-    /// Field 45 — milliseconds since epoch
-    pub regular_market_trade_time: Option<DateTime<Utc>>,
-    /// Field 46 — milliseconds since epoch
-    pub regular_market_trade_day: Option<i64>,
-    /// Field 47
+    /// Field 31
     pub regular_market_net_change: Option<f64>,
-    /// Field 48
+    /// Field 32
     pub security_status: Option<String>,
-    /// Field 49
+    /// Field 33
     pub mark: Option<f64>,
-    /// Field 50 — milliseconds since epoch
+    /// Field 34 — milliseconds since epoch
     pub quote_time_millis: Option<DateTime<Utc>>,
-    /// Field 51 — milliseconds since epoch
+    /// Field 35 — milliseconds since epoch
     pub trade_time_millis: Option<DateTime<Utc>>,
+    /// Field 36 — milliseconds since epoch
+    pub regular_market_trade_millis: Option<DateTime<Utc>>,
+    /// Field 37 — milliseconds since epoch
+    pub bid_time_millis: Option<DateTime<Utc>>,
+    /// Field 38 — milliseconds since epoch
+    pub ask_time_millis: Option<DateTime<Utc>>,
+    /// Field 39 — MIC of the ask exchange
+    pub ask_mic_id: Option<String>,
+    /// Field 40 — MIC of the bid exchange
+    pub bid_mic_id: Option<String>,
+    /// Field 41 — MIC of the last trade exchange
+    pub last_mic_id: Option<String>,
+    /// Field 42
+    pub net_change_percent: Option<f64>,
+    /// Field 43
+    pub regular_market_change_percent: Option<f64>,
+    /// Field 44
+    pub mark_change: Option<f64>,
+    /// Field 45
+    pub mark_change_percent: Option<f64>,
+    /// Field 46
+    pub htb_quantity: Option<f64>,
+    /// Field 47
+    pub htb_rate: Option<f64>,
+    /// Field 48
+    pub hard_to_borrow: Option<i64>,
+    /// Field 49
+    pub is_shortable: Option<i64>,
+    /// Field 50
+    pub post_market_net_change: Option<f64>,
+    /// Field 51
+    pub post_market_net_change_percent: Option<f64>,
 }
 
 impl TryFrom<&Value> for LevelOneEquityEvent {
@@ -171,48 +171,48 @@ impl TryFrom<&Value> for LevelOneEquityEvent {
                 "7"  => e.bid_id = as_string(val),
                 "8"  => e.total_volume = as_u64(val),
                 "9"  => e.last_size = as_u64(val),
-                "10" => e.quote_time = millis_to_dt(val),
-                "11" => e.trade_time = millis_to_dt(val),
-                "12" => e.high_price = as_f64(val),
-                "13" => e.low_price = as_f64(val),
-                "14" => e.bid_tick = as_string(val),
-                "15" => e.close_price = as_f64(val),
-                "16" => e.exchange_id = as_string(val),
-                "17" => e.marginable = as_bool(val),
-                "18" => e.shortable = as_bool(val),
-                "19" => e.island_bid_price = as_f64(val),
-                "20" => e.island_ask_price = as_f64(val),
-                "21" => e.island_volume = as_u64(val),
-                "22" => e.quote_day = as_i64(val),
-                "23" => e.trade_day = as_i64(val),
-                "24" => e.volatility = as_f64(val),
-                "25" => e.description = as_string(val),
-                "26" => e.last_id = as_string(val),
-                "27" => e.digits = as_i64(val),
-                "28" => e.open_price = as_f64(val),
-                "29" => e.net_change = as_f64(val),
-                "30" => e.week52_high = as_f64(val),
-                "31" => e.week52_low = as_f64(val),
-                "32" => e.pe_ratio = as_f64(val),
-                "33" => e.dividend_amount = as_f64(val),
-                "34" => e.dividend_yield = as_f64(val),
-                "35" => e.island_bid_size = as_u64(val),
-                "36" => e.island_ask_size = as_u64(val),
-                "37" => e.nav = as_f64(val),
-                "38" => e.fund_price = as_f64(val),
-                "39" => e.exchange_name = as_string(val),
-                "40" => e.dividend_date = as_string(val),
-                "41" => e.is_regular_market_quote = as_bool(val),
-                "42" => e.is_regular_market_trade = as_bool(val),
-                "43" => e.regular_market_last_price = as_f64(val),
-                "44" => e.regular_market_last_size = as_u64(val),
-                "45" => e.regular_market_trade_time = millis_to_dt(val),
-                "46" => e.regular_market_trade_day = as_i64(val),
-                "47" => e.regular_market_net_change = as_f64(val),
-                "48" => e.security_status = as_string(val),
-                "49" => e.mark = as_f64(val),
-                "50" => e.quote_time_millis = millis_to_dt(val),
-                "51" => e.trade_time_millis = millis_to_dt(val),
+                "10" => e.high_price = as_f64(val),
+                "11" => e.low_price = as_f64(val),
+                "12" => e.close_price = as_f64(val),
+                "13" => e.exchange_id = as_string(val),
+                "14" => e.marginable = as_bool(val),
+                "15" => e.description = as_string(val),
+                "16" => e.last_id = as_string(val),
+                "17" => e.open_price = as_f64(val),
+                "18" => e.net_change = as_f64(val),
+                "19" => e.week52_high = as_f64(val),
+                "20" => e.week52_low = as_f64(val),
+                "21" => e.pe_ratio = as_f64(val),
+                "22" => e.dividend_amount = as_f64(val),
+                "23" => e.dividend_yield = as_f64(val),
+                "24" => e.nav = as_f64(val),
+                "25" => e.exchange_name = as_string(val),
+                "26" => e.dividend_date = as_string(val),
+                "27" => e.is_regular_market_quote = as_bool(val),
+                "28" => e.is_regular_market_trade = as_bool(val),
+                "29" => e.regular_market_last_price = as_f64(val),
+                "30" => e.regular_market_last_size = as_u64(val),
+                "31" => e.regular_market_net_change = as_f64(val),
+                "32" => e.security_status = as_string(val),
+                "33" => e.mark = as_f64(val),
+                "34" => e.quote_time_millis = millis_to_dt(val),
+                "35" => e.trade_time_millis = millis_to_dt(val),
+                "36" => e.regular_market_trade_millis = millis_to_dt(val),
+                "37" => e.bid_time_millis = millis_to_dt(val),
+                "38" => e.ask_time_millis = millis_to_dt(val),
+                "39" => e.ask_mic_id = as_string(val),
+                "40" => e.bid_mic_id = as_string(val),
+                "41" => e.last_mic_id = as_string(val),
+                "42" => e.net_change_percent = as_f64(val),
+                "43" => e.regular_market_change_percent = as_f64(val),
+                "44" => e.mark_change = as_f64(val),
+                "45" => e.mark_change_percent = as_f64(val),
+                "46" => e.htb_quantity = as_f64(val),
+                "47" => e.htb_rate = as_f64(val),
+                "48" => e.hard_to_borrow = as_i64(val),
+                "49" => e.is_shortable = as_i64(val),
+                "50" => e.post_market_net_change = as_f64(val),
+                "51" => e.post_market_net_change_percent = as_f64(val),
                 _    => {}
             }
         }
@@ -247,96 +247,96 @@ pub struct LevelOneOptionEvent {
     pub open_interest: Option<i64>,
     /// Field 10
     pub volatility: Option<f64>,
-    /// Field 11 — milliseconds
-    pub quote_time: Option<DateTime<Utc>>,
-    /// Field 12 — milliseconds
-    pub trade_time: Option<DateTime<Utc>>,
-    /// Field 13
+    /// Field 11
     pub money_intrinsic_value: Option<f64>,
-    /// Field 14
-    pub quote_day: Option<i64>,
-    /// Field 15
-    pub trade_day: Option<i64>,
-    /// Field 16
+    /// Field 12
     pub expiration_year: Option<i64>,
-    /// Field 17
+    /// Field 13
     pub multiplier: Option<f64>,
-    /// Field 18
+    /// Field 14
     pub digits: Option<i64>,
-    /// Field 19
+    /// Field 15
     pub open_price: Option<f64>,
-    /// Field 20
+    /// Field 16
     pub bid_size: Option<u64>,
-    /// Field 21
+    /// Field 17
     pub ask_size: Option<u64>,
-    /// Field 22
+    /// Field 18
     pub last_size: Option<u64>,
-    /// Field 23
+    /// Field 19
     pub net_change: Option<f64>,
-    /// Field 24
+    /// Field 20
     pub strike_price: Option<f64>,
-    /// Field 25
+    /// Field 21
     pub contract_type: Option<String>,
-    /// Field 26
+    /// Field 22
     pub underlying: Option<String>,
-    /// Field 27
+    /// Field 23
     pub expiration_month: Option<i64>,
-    /// Field 28
+    /// Field 24
     pub deliverables: Option<String>,
-    /// Field 29
+    /// Field 25
     pub time_value: Option<f64>,
-    /// Field 30
+    /// Field 26
     pub expiration_day: Option<i64>,
-    /// Field 31
+    /// Field 27
     pub days_to_expiration: Option<i64>,
-    /// Field 32
+    /// Field 28
     pub delta: Option<f64>,
-    /// Field 33
+    /// Field 29
     pub gamma: Option<f64>,
-    /// Field 34
+    /// Field 30
     pub theta: Option<f64>,
-    /// Field 35
+    /// Field 31
     pub vega: Option<f64>,
-    /// Field 36
+    /// Field 32
     pub rho: Option<f64>,
-    /// Field 37
+    /// Field 33
     pub security_status: Option<String>,
-    /// Field 38
+    /// Field 34
     pub theoretical_option_value: Option<f64>,
-    /// Field 39
+    /// Field 35
     pub underlying_price: Option<f64>,
-    /// Field 40
+    /// Field 36
     pub uv_expiration_type: Option<String>,
-    /// Field 41
+    /// Field 37
     pub mark: Option<f64>,
-    /// Field 42 — milliseconds
+    /// Field 38 — milliseconds since epoch
     pub quote_time_millis: Option<DateTime<Utc>>,
-    /// Field 43 — milliseconds
+    /// Field 39 — milliseconds since epoch
     pub trade_time_millis: Option<DateTime<Utc>>,
-    /// Field 44
+    /// Field 40
     pub exchange_id: Option<String>,
-    /// Field 45
+    /// Field 41
     pub exchange_name: Option<String>,
-    /// Field 46 — milliseconds
+    /// Field 42
     pub last_trading_day: Option<i64>,
-    /// Field 47
+    /// Field 43
     pub settlement_type: Option<String>,
-    /// Field 48
+    /// Field 44
     pub net_percent_change: Option<f64>,
-    /// Field 49
+    /// Field 45
     pub mark_change: Option<f64>,
-    /// Field 50
+    /// Field 46
     pub mark_percent_change: Option<f64>,
-    /// Field 51
+    /// Field 47
     pub implied_yield: Option<f64>,
-    /// Field 52
+    /// Field 48
     pub is_penny_pilot: Option<bool>,
-    /// Field 53
+    /// Field 49
     pub option_root: Option<String>,
-    /// Field 54
+    /// Field 50
     pub week52_high: Option<f64>,
-    /// Field 55
+    /// Field 51
     pub week52_low: Option<f64>,
+    /// Field 52
+    pub indicative_asking_price: Option<f64>,
+    /// Field 53
+    pub indicative_bid_price: Option<f64>,
+    /// Field 54 — milliseconds since epoch
+    pub indicative_quote_time: Option<DateTime<Utc>>,
+    /// Field 55
+    pub exercise_type: Option<String>,
 }
 
 impl TryFrom<&Value> for LevelOneOptionEvent {
@@ -360,51 +360,51 @@ impl TryFrom<&Value> for LevelOneOptionEvent {
                 "8"  => e.total_volume = as_u64(val),
                 "9"  => e.open_interest = as_i64(val),
                 "10" => e.volatility = as_f64(val),
-                "11" => e.quote_time = millis_to_dt(val),
-                "12" => e.trade_time = millis_to_dt(val),
-                "13" => e.money_intrinsic_value = as_f64(val),
-                "14" => e.quote_day = as_i64(val),
-                "15" => e.trade_day = as_i64(val),
-                "16" => e.expiration_year = as_i64(val),
-                "17" => e.multiplier = as_f64(val),
-                "18" => e.digits = as_i64(val),
-                "19" => e.open_price = as_f64(val),
-                "20" => e.bid_size = as_u64(val),
-                "21" => e.ask_size = as_u64(val),
-                "22" => e.last_size = as_u64(val),
-                "23" => e.net_change = as_f64(val),
-                "24" => e.strike_price = as_f64(val),
-                "25" => e.contract_type = as_string(val),
-                "26" => e.underlying = as_string(val),
-                "27" => e.expiration_month = as_i64(val),
-                "28" => e.deliverables = as_string(val),
-                "29" => e.time_value = as_f64(val),
-                "30" => e.expiration_day = as_i64(val),
-                "31" => e.days_to_expiration = as_i64(val),
-                "32" => e.delta = as_f64(val),
-                "33" => e.gamma = as_f64(val),
-                "34" => e.theta = as_f64(val),
-                "35" => e.vega = as_f64(val),
-                "36" => e.rho = as_f64(val),
-                "37" => e.security_status = as_string(val),
-                "38" => e.theoretical_option_value = as_f64(val),
-                "39" => e.underlying_price = as_f64(val),
-                "40" => e.uv_expiration_type = as_string(val),
-                "41" => e.mark = as_f64(val),
-                "42" => e.quote_time_millis = millis_to_dt(val),
-                "43" => e.trade_time_millis = millis_to_dt(val),
-                "44" => e.exchange_id = as_string(val),
-                "45" => e.exchange_name = as_string(val),
-                "46" => e.last_trading_day = as_i64(val),
-                "47" => e.settlement_type = as_string(val),
-                "48" => e.net_percent_change = as_f64(val),
-                "49" => e.mark_change = as_f64(val),
-                "50" => e.mark_percent_change = as_f64(val),
-                "51" => e.implied_yield = as_f64(val),
-                "52" => e.is_penny_pilot = as_bool(val),
-                "53" => e.option_root = as_string(val),
-                "54" => e.week52_high = as_f64(val),
-                "55" => e.week52_low = as_f64(val),
+                "11" => e.money_intrinsic_value = as_f64(val),
+                "12" => e.expiration_year = as_i64(val),
+                "13" => e.multiplier = as_f64(val),
+                "14" => e.digits = as_i64(val),
+                "15" => e.open_price = as_f64(val),
+                "16" => e.bid_size = as_u64(val),
+                "17" => e.ask_size = as_u64(val),
+                "18" => e.last_size = as_u64(val),
+                "19" => e.net_change = as_f64(val),
+                "20" => e.strike_price = as_f64(val),
+                "21" => e.contract_type = as_string(val),
+                "22" => e.underlying = as_string(val),
+                "23" => e.expiration_month = as_i64(val),
+                "24" => e.deliverables = as_string(val),
+                "25" => e.time_value = as_f64(val),
+                "26" => e.expiration_day = as_i64(val),
+                "27" => e.days_to_expiration = as_i64(val),
+                "28" => e.delta = as_f64(val),
+                "29" => e.gamma = as_f64(val),
+                "30" => e.theta = as_f64(val),
+                "31" => e.vega = as_f64(val),
+                "32" => e.rho = as_f64(val),
+                "33" => e.security_status = as_string(val),
+                "34" => e.theoretical_option_value = as_f64(val),
+                "35" => e.underlying_price = as_f64(val),
+                "36" => e.uv_expiration_type = as_string(val),
+                "37" => e.mark = as_f64(val),
+                "38" => e.quote_time_millis = millis_to_dt(val),
+                "39" => e.trade_time_millis = millis_to_dt(val),
+                "40" => e.exchange_id = as_string(val),
+                "41" => e.exchange_name = as_string(val),
+                "42" => e.last_trading_day = as_i64(val),
+                "43" => e.settlement_type = as_string(val),
+                "44" => e.net_percent_change = as_f64(val),
+                "45" => e.mark_change = as_f64(val),
+                "46" => e.mark_percent_change = as_f64(val),
+                "47" => e.implied_yield = as_f64(val),
+                "48" => e.is_penny_pilot = as_bool(val),
+                "49" => e.option_root = as_string(val),
+                "50" => e.week52_high = as_f64(val),
+                "51" => e.week52_low = as_f64(val),
+                "52" => e.indicative_asking_price = as_f64(val),
+                "53" => e.indicative_bid_price = as_f64(val),
+                "54" => e.indicative_quote_time = millis_to_dt(val),
+                "55" => e.exercise_type = as_string(val),
                 _    => {}
             }
         }
@@ -430,17 +430,17 @@ pub struct LevelOneFuturesEvent {
     /// Field 5
     pub ask_size: Option<i64>,
     /// Field 6
-    pub ask_id: Option<String>,
-    /// Field 7
     pub bid_id: Option<String>,
+    /// Field 7
+    pub ask_id: Option<String>,
     /// Field 8
     pub total_volume: Option<u64>,
     /// Field 9
     pub last_size: Option<i64>,
-    /// Field 10 — milliseconds
-    pub quote_time: Option<DateTime<Utc>>,
-    /// Field 11 — milliseconds
-    pub trade_time: Option<DateTime<Utc>>,
+    /// Field 10 — milliseconds since epoch
+    pub quote_time_millis: Option<DateTime<Utc>>,
+    /// Field 11 — milliseconds since epoch
+    pub trade_time_millis: Option<DateTime<Utc>>,
     /// Field 12
     pub high_price: Option<f64>,
     /// Field 13
@@ -487,17 +487,17 @@ pub struct LevelOneFuturesEvent {
     pub future_settlement_price: Option<f64>,
     /// Field 34
     pub future_active_symbol: Option<String>,
-    /// Field 35 — milliseconds
+    /// Field 35 — milliseconds since epoch
     pub future_expiration_date: Option<DateTime<Utc>>,
     /// Field 36
     pub expiration_style: Option<String>,
-    /// Field 37
-    pub ask_time: Option<DateTime<Utc>>,
-    /// Field 38
-    pub bid_time: Option<DateTime<Utc>>,
+    /// Field 37 — milliseconds since epoch
+    pub ask_time_millis: Option<DateTime<Utc>>,
+    /// Field 38 — milliseconds since epoch
+    pub bid_time_millis: Option<DateTime<Utc>>,
     /// Field 39
     pub quoted_in_session: Option<bool>,
-    /// Field 40
+    /// Field 40 — milliseconds since epoch
     pub settlement_date: Option<DateTime<Utc>>,
 }
 
@@ -517,12 +517,12 @@ impl TryFrom<&Value> for LevelOneFuturesEvent {
                 "3"  => e.last_price = as_f64(val),
                 "4"  => e.bid_size = as_i64(val),
                 "5"  => e.ask_size = as_i64(val),
-                "6"  => e.ask_id = as_string(val),
-                "7"  => e.bid_id = as_string(val),
+                "6"  => e.bid_id = as_string(val),
+                "7"  => e.ask_id = as_string(val),
                 "8"  => e.total_volume = as_u64(val),
                 "9"  => e.last_size = as_i64(val),
-                "10" => e.quote_time = millis_to_dt(val),
-                "11" => e.trade_time = millis_to_dt(val),
+                "10" => e.quote_time_millis = millis_to_dt(val),
+                "11" => e.trade_time_millis = millis_to_dt(val),
                 "12" => e.high_price = as_f64(val),
                 "13" => e.low_price = as_f64(val),
                 "14" => e.close_price = as_f64(val),
@@ -548,8 +548,8 @@ impl TryFrom<&Value> for LevelOneFuturesEvent {
                 "34" => e.future_active_symbol = as_string(val),
                 "35" => e.future_expiration_date = millis_to_dt(val),
                 "36" => e.expiration_style = as_string(val),
-                "37" => e.ask_time = millis_to_dt(val),
-                "38" => e.bid_time = millis_to_dt(val),
+                "37" => e.ask_time_millis = millis_to_dt(val),
+                "38" => e.bid_time_millis = millis_to_dt(val),
                 "39" => e.quoted_in_session = as_bool(val),
                 "40" => e.settlement_date = millis_to_dt(val),
                 _    => {}
@@ -580,10 +580,10 @@ pub struct LevelOneForexEvent {
     pub total_volume: Option<u64>,
     /// Field 7
     pub last_size: Option<i64>,
-    /// Field 8 — milliseconds
-    pub quote_time: Option<DateTime<Utc>>,
-    /// Field 9 — milliseconds
-    pub trade_time: Option<DateTime<Utc>>,
+    /// Field 8 — milliseconds since epoch
+    pub quote_time_millis: Option<DateTime<Utc>>,
+    /// Field 9 — milliseconds since epoch
+    pub trade_time_millis: Option<DateTime<Utc>>,
     /// Field 10
     pub high_price: Option<f64>,
     /// Field 11
@@ -644,8 +644,8 @@ impl TryFrom<&Value> for LevelOneForexEvent {
                 "5"  => e.ask_size = as_i64(val),
                 "6"  => e.total_volume = as_u64(val),
                 "7"  => e.last_size = as_i64(val),
-                "8"  => e.quote_time = millis_to_dt(val),
-                "9"  => e.trade_time = millis_to_dt(val),
+                "8"  => e.quote_time_millis = millis_to_dt(val),
+                "9"  => e.trade_time_millis = millis_to_dt(val),
                 "10" => e.high_price = as_f64(val),
                 "11" => e.low_price = as_f64(val),
                 "12" => e.close_price = as_f64(val),
@@ -691,17 +691,17 @@ pub struct LevelOneFuturesOptionsEvent {
     /// Field 5
     pub ask_size: Option<i64>,
     /// Field 6
-    pub ask_id: Option<String>,
-    /// Field 7
     pub bid_id: Option<String>,
+    /// Field 7
+    pub ask_id: Option<String>,
     /// Field 8
     pub total_volume: Option<u64>,
     /// Field 9
     pub last_size: Option<i64>,
-    /// Field 10 — milliseconds
-    pub quote_time: Option<DateTime<Utc>>,
-    /// Field 11 — milliseconds
-    pub trade_time: Option<DateTime<Utc>>,
+    /// Field 10 — milliseconds since epoch
+    pub quote_time_millis: Option<DateTime<Utc>>,
+    /// Field 11 — milliseconds since epoch
+    pub trade_time_millis: Option<DateTime<Utc>>,
     /// Field 12
     pub high_price: Option<f64>,
     /// Field 13
@@ -709,39 +709,39 @@ pub struct LevelOneFuturesOptionsEvent {
     /// Field 14
     pub close_price: Option<f64>,
     /// Field 15
-    pub exchange_id: Option<String>,
+    pub last_id: Option<String>,
     /// Field 16
     pub description: Option<String>,
     /// Field 17
-    pub last_id: Option<String>,
-    /// Field 18
     pub open_price: Option<f64>,
-    /// Field 19
-    pub net_change: Option<f64>,
-    /// Field 20
-    pub future_percent_change: Option<f64>,
-    /// Field 21
-    pub exchange_name: Option<String>,
-    /// Field 22
-    pub security_status: Option<String>,
-    /// Field 23
+    /// Field 18
     pub open_interest: Option<i64>,
-    /// Field 24
+    /// Field 19
     pub mark: Option<f64>,
-    /// Field 25
+    /// Field 20
     pub tick: Option<f64>,
-    /// Field 26
+    /// Field 21
     pub tick_amount: Option<f64>,
-    /// Field 27
-    pub product: Option<String>,
-    /// Field 28
-    pub future_price_format: Option<String>,
-    /// Field 29
-    pub future_trading_hours: Option<String>,
-    /// Field 30
-    pub future_is_tradable: Option<bool>,
-    /// Field 31
+    /// Field 22
     pub future_multiplier: Option<f64>,
+    /// Field 23
+    pub future_settlement_price: Option<f64>,
+    /// Field 24
+    pub underlying_symbol: Option<String>,
+    /// Field 25
+    pub strike_price: Option<f64>,
+    /// Field 26 — milliseconds since epoch
+    pub future_expiration_date: Option<DateTime<Utc>>,
+    /// Field 27
+    pub expiration_style: Option<String>,
+    /// Field 28
+    pub contract_type: Option<String>,
+    /// Field 29
+    pub security_status: Option<String>,
+    /// Field 30
+    pub exchange_id: Option<String>,
+    /// Field 31
+    pub exchange_name: Option<String>,
 }
 
 impl TryFrom<&Value> for LevelOneFuturesOptionsEvent {
@@ -760,32 +760,32 @@ impl TryFrom<&Value> for LevelOneFuturesOptionsEvent {
                 "3"  => e.last_price = as_f64(val),
                 "4"  => e.bid_size = as_i64(val),
                 "5"  => e.ask_size = as_i64(val),
-                "6"  => e.ask_id = as_string(val),
-                "7"  => e.bid_id = as_string(val),
+                "6"  => e.bid_id = as_string(val),
+                "7"  => e.ask_id = as_string(val),
                 "8"  => e.total_volume = as_u64(val),
                 "9"  => e.last_size = as_i64(val),
-                "10" => e.quote_time = millis_to_dt(val),
-                "11" => e.trade_time = millis_to_dt(val),
+                "10" => e.quote_time_millis = millis_to_dt(val),
+                "11" => e.trade_time_millis = millis_to_dt(val),
                 "12" => e.high_price = as_f64(val),
                 "13" => e.low_price = as_f64(val),
                 "14" => e.close_price = as_f64(val),
-                "15" => e.exchange_id = as_string(val),
+                "15" => e.last_id = as_string(val),
                 "16" => e.description = as_string(val),
-                "17" => e.last_id = as_string(val),
-                "18" => e.open_price = as_f64(val),
-                "19" => e.net_change = as_f64(val),
-                "20" => e.future_percent_change = as_f64(val),
-                "21" => e.exchange_name = as_string(val),
-                "22" => e.security_status = as_string(val),
-                "23" => e.open_interest = as_i64(val),
-                "24" => e.mark = as_f64(val),
-                "25" => e.tick = as_f64(val),
-                "26" => e.tick_amount = as_f64(val),
-                "27" => e.product = as_string(val),
-                "28" => e.future_price_format = as_string(val),
-                "29" => e.future_trading_hours = as_string(val),
-                "30" => e.future_is_tradable = as_bool(val),
-                "31" => e.future_multiplier = as_f64(val),
+                "17" => e.open_price = as_f64(val),
+                "18" => e.open_interest = as_i64(val),
+                "19" => e.mark = as_f64(val),
+                "20" => e.tick = as_f64(val),
+                "21" => e.tick_amount = as_f64(val),
+                "22" => e.future_multiplier = as_f64(val),
+                "23" => e.future_settlement_price = as_f64(val),
+                "24" => e.underlying_symbol = as_string(val),
+                "25" => e.strike_price = as_f64(val),
+                "26" => e.future_expiration_date = millis_to_dt(val),
+                "27" => e.expiration_style = as_string(val),
+                "28" => e.contract_type = as_string(val),
+                "29" => e.security_status = as_string(val),
+                "30" => e.exchange_id = as_string(val),
+                "31" => e.exchange_name = as_string(val),
                 _    => {}
             }
         }

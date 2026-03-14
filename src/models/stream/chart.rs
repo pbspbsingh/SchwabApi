@@ -18,18 +18,18 @@ pub struct ChartEquityEvent {
     /// Field 0 — symbol (always present).
     pub symbol: String,
     /// Field 1
-    pub open_price: Option<f64>,
-    /// Field 2
-    pub high_price: Option<f64>,
-    /// Field 3
-    pub low_price: Option<f64>,
-    /// Field 4
-    pub close_price: Option<f64>,
-    /// Field 5
-    pub volume: Option<f64>,
-    /// Field 6
     pub sequence: Option<i64>,
-    /// Field 7 — milliseconds
+    /// Field 2
+    pub open_price: Option<f64>,
+    /// Field 3
+    pub high_price: Option<f64>,
+    /// Field 4
+    pub low_price: Option<f64>,
+    /// Field 5
+    pub close_price: Option<f64>,
+    /// Field 6
+    pub volume: Option<f64>,
+    /// Field 7 — milliseconds since epoch
     pub chart_time: Option<DateTime<Utc>>,
     /// Field 8
     pub chart_day: Option<i64>,
@@ -46,12 +46,12 @@ impl TryFrom<&Value> for ChartEquityEvent {
         for (k, val) in obj {
             match k.as_str() {
                 "0" => e.symbol = val.as_str().unwrap_or_default().to_string(),
-                "1" => e.open_price = val.as_f64(),
-                "2" => e.high_price = val.as_f64(),
-                "3" => e.low_price = val.as_f64(),
-                "4" => e.close_price = val.as_f64(),
-                "5" => e.volume = val.as_f64(),
-                "6" => e.sequence = val.as_i64(),
+                "1" => e.sequence = val.as_i64(),
+                "2" => e.open_price = val.as_f64(),
+                "3" => e.high_price = val.as_f64(),
+                "4" => e.low_price = val.as_f64(),
+                "5" => e.close_price = val.as_f64(),
+                "6" => e.volume = val.as_f64(),
                 "7" => e.chart_time = millis_to_dt(val),
                 "8" => e.chart_day = val.as_i64(),
                 _   => {}

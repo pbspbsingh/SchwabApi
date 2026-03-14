@@ -13,12 +13,12 @@ pub struct BookLevel {
     pub entries: Vec<BookEntry>,
 }
 
-/// A single market-maker or exchange entry at a price level.
+/// A single exchange entry at a price level.
 #[derive(Debug, Clone, Default)]
 pub struct BookEntry {
-    pub market_maker: Option<String>,
+    pub exchange: Option<String>,
     pub size: Option<i64>,
-    pub quote_time: Option<i64>,
+    pub sequence: Option<i64>,
 }
 
 fn parse_entries(arr: &Value) -> Vec<BookEntry> {
@@ -29,9 +29,9 @@ fn parse_entries(arr: &Value) -> Vec<BookEntry> {
             if let Some(obj) = item.as_object() {
                 for (k, v) in obj {
                     match k.as_str() {
-                        "0" => entry.market_maker = v.as_str().map(|s| s.to_string()),
+                        "0" => entry.exchange = v.as_str().map(|s| s.to_string()),
                         "1" => entry.size = v.as_i64(),
-                        "2" => entry.quote_time = v.as_i64(),
+                        "2" => entry.sequence = v.as_i64(),
                         _   => {}
                     }
                 }
