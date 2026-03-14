@@ -440,14 +440,12 @@ impl SchwabClient {
             });
         }
         // The order ID is in the Location header: .../orders/<id>
-        if let Some(loc) = resp.headers().get("location") {
-            if let Ok(s) = loc.to_str() {
-                if let Some(id_str) = s.rsplit('/').next() {
-                    if let Ok(id) = id_str.parse::<OrderId>() {
-                        return Ok(id);
-                    }
-                }
-            }
+        if let Some(loc) = resp.headers().get("location")
+            && let Ok(s) = loc.to_str()
+            && let Some(id_str) = s.rsplit('/').next()
+            && let Ok(id) = id_str.parse::<OrderId>()
+        {
+            return Ok(id);
         }
         Err(Error::Api {
             status: status.as_u16(),

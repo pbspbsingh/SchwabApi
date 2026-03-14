@@ -40,12 +40,12 @@ pub type QuotesMap = HashMap<String, QuoteResponse>;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "assetMainType", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum QuoteResponse {
-    Equity(EquityQuoteResponse),
-    Option(OptionQuoteResponse),
-    Forex(ForexQuoteResponse),
-    Future(FutureQuoteResponse),
-    FutureOption(FutureOptionQuoteResponse),
-    Index(IndexQuoteResponse),
+    Equity(Box<EquityQuoteResponse>),
+    Option(Box<OptionQuoteResponse>),
+    Forex(Box<ForexQuoteResponse>),
+    Future(Box<FutureQuoteResponse>),
+    FutureOption(Box<FutureOptionQuoteResponse>),
+    Index(Box<IndexQuoteResponse>),
     #[serde(other)]
     Unknown,
 }

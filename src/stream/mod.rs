@@ -108,7 +108,7 @@ impl StreamClientInner {
         {
             let mut sink_guard = self.ws_sink.lock().await;
             if let Some(sink) = sink_guard.as_mut() {
-                sink.send(Message::Text(text.into())).await?;
+                sink.send(Message::Text(text)).await?;
             } else {
                 return Err(Error::StreamDisconnected);
             }
@@ -375,10 +375,10 @@ impl Drop for StreamClient {
         // Signal the recv_loop to stop.
         let _ = self.inner.shutdown.send(true);
         // Abort the background task as a safety net (non-blocking).
-        if let Ok(mut guard) = self.recv_task.try_lock() {
-            if let Some(handle) = guard.take() {
-                handle.abort();
-            }
+        if let Ok(mut guard) = self.recv_task.try_lock()
+            && let Some(handle) = guard.take()
+        {
+            handle.abort();
         }
     }
 }

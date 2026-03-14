@@ -114,10 +114,10 @@ impl LevelOneEquitySub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = LevelOneEquityEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() {
-                        break;
-                    }
+                if let Ok(event) = LevelOneEquityEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -213,8 +213,10 @@ impl LevelOneOptionSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = LevelOneOptionEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = LevelOneOptionEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -291,8 +293,10 @@ impl LevelOneFuturesSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = LevelOneFuturesEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = LevelOneFuturesEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -369,8 +373,10 @@ impl LevelOneForexSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = LevelOneForexEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = LevelOneForexEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -447,8 +453,10 @@ impl LevelOneFuturesOptionsSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = LevelOneFuturesOptionsEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = LevelOneFuturesOptionsEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -525,8 +533,10 @@ impl ChartEquitySub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = ChartEquityEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = ChartEquityEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -603,8 +613,10 @@ impl ChartFuturesSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = ChartFuturesEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = ChartFuturesEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -681,8 +693,10 @@ impl NyseBookSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = BookEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = BookEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -759,8 +773,10 @@ impl NasdaqBookSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = BookEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = BookEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -837,8 +853,10 @@ impl OptionsBookSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = BookEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = BookEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -917,8 +935,10 @@ impl ScreenerEquitySub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = ScreenerEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = ScreenerEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -995,8 +1015,10 @@ impl ScreenerOptionSub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = ScreenerEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = ScreenerEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });
@@ -1075,8 +1097,10 @@ impl AccountActivitySub {
 
         tokio::spawn(async move {
             while let Some(raw) = raw_rx.recv().await {
-                if let Ok(event) = AccountActivityEvent::try_from(&raw) {
-                    if typed_tx.send(event).await.is_err() { break; }
+                if let Ok(event) = AccountActivityEvent::try_from(&raw)
+                    && typed_tx.send(event).await.is_err()
+                {
+                    break;
                 }
             }
         });

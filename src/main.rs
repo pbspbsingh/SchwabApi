@@ -9,6 +9,7 @@ use schwab_api::{SchwabClient, StreamClient};
 const TOKEN_FILE: &str = "tokens.json";
 
 #[tokio::main]
+#[allow(clippy::result_large_err)]
 async fn main() -> schwab_api::Result<()> {
     tracing_subscriber::fmt::init();
 
