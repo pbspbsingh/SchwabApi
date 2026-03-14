@@ -9,7 +9,7 @@ use crate::error::{Error, Result};
 pub struct BookLevel {
     pub price: Option<f64>,
     pub total_size: Option<i64>,
-    pub total_count: Option<i32>,
+    pub total_count: Option<i64>,
     pub entries: Vec<BookEntry>,
 }
 
@@ -52,7 +52,7 @@ fn parse_levels(arr: &Value) -> Vec<BookLevel> {
                     match k.as_str() {
                         "0" => level.price = v.as_f64(),
                         "1" => level.total_size = v.as_i64(),
-                        "2" => level.total_count = v.as_i64().map(|n| n as i32),
+                        "2" => level.total_count = v.as_i64(),
                         "3" => level.entries = parse_entries(v),
                         _   => {}
                     }
@@ -85,7 +85,7 @@ impl TryFrom<&Value> for BookEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = BookEvent::default();
         for (k, val) in obj {
             match k.as_str() {

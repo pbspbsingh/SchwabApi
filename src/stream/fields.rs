@@ -67,9 +67,18 @@ pub enum LevelOneEquityField {
 impl LevelOneEquityField {
     /// Return all 52 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=51)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use LevelOneEquityField::*;
+        vec![
+            Symbol, BidPrice, AskPrice, LastPrice, BidSize, AskSize, AskId, BidId,
+            TotalVolume, LastSize, QuoteTime, TradeTime, HighPrice, LowPrice, BidTick,
+            ClosePrice, ExchangeId, Marginable, Shortable, IslandBidPrice, IslandAskPrice,
+            IslandVolume, QuoteDay, TradeDay, Volatility, Description, LastId, Digits,
+            OpenPrice, NetChange, Week52High, Week52Low, PeRatio, DividendAmount,
+            DividendYield, IslandBidSize, IslandAskSize, Nav, FundPrice, ExchangeName,
+            DividendDate, IsRegularMarketQuote, IsRegularMarketTrade, RegularMarketLastPrice,
+            RegularMarketLastSize, RegularMarketTradeTime, RegularMarketTradeDay,
+            RegularMarketNetChange, SecurityStatus, Mark, QuoteTimeMillis, TradeTimeMillis,
+        ]
     }
 }
 
@@ -140,9 +149,19 @@ pub enum LevelOneOptionField {
 impl LevelOneOptionField {
     /// Return all 56 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=55)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use LevelOneOptionField::*;
+        vec![
+            Symbol, Description, BidPrice, AskPrice, LastPrice, HighPrice, LowPrice,
+            ClosePrice, TotalVolume, OpenInterest, Volatility, QuoteTime, TradeTime,
+            MoneyIntrinsicValue, QuoteDay, TradeDay, ExpirationYear, Multiplier, Digits,
+            OpenPrice, BidSize, AskSize, LastSize, NetChange, StrikePrice, ContractType,
+            Underlying, ExpirationMonth, Deliverables, TimeValue, ExpirationDay,
+            DaysToExpiration, Delta, Gamma, Theta, Vega, Rho, SecurityStatus,
+            TheoreticalOptionValue, UnderlyingPrice, UvExpirationType, Mark,
+            QuoteTimeMillis, TradeTimeMillis, ExchangeId, ExchangeName, LastTradingDay,
+            SettlementType, NetPercentChange, MarkChange, MarkPercentChange, ImpliedYield,
+            IsPennyPilot, OptionRoot, Week52High, Week52Low,
+        ]
     }
 }
 
@@ -198,9 +217,16 @@ pub enum LevelOneFuturesField {
 impl LevelOneFuturesField {
     /// Return all 41 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=40)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use LevelOneFuturesField::*;
+        vec![
+            Symbol, BidPrice, AskPrice, LastPrice, BidSize, AskSize, AskId, BidId,
+            TotalVolume, LastSize, QuoteTime, TradeTime, HighPrice, LowPrice, ClosePrice,
+            ExchangeId, Description, LastId, OpenPrice, NetChange, FuturePercentChange,
+            ExchangeName, SecurityStatus, OpenInterest, Mark, Tick, TickAmount, Product,
+            FuturePriceFormat, FutureTradingHours, FutureIsTradable, FutureMultiplier,
+            FutureIsActive, FutureSettlementPrice, FutureActiveSymbol, FutureExpirationDate,
+            ExpirationStyle, AskTime, BidTime, QuotedInSession, SettlementDate,
+        ]
     }
 }
 
@@ -245,9 +271,14 @@ pub enum LevelOneForexField {
 impl LevelOneForexField {
     /// Return all 30 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=29)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use LevelOneForexField::*;
+        vec![
+            Symbol, BidPrice, AskPrice, LastPrice, BidSize, AskSize, TotalVolume, LastSize,
+            QuoteTime, TradeTime, HighPrice, LowPrice, ClosePrice, ExchangeId, Description,
+            OpenPrice, NetChange, PercentChange, ExchangeName, Digits, SecurityStatus, Tick,
+            TickAmount, Product, TradingHours, IsTradable, MarketMaker, Week52High,
+            Week52Low, Mark,
+        ]
     }
 }
 
@@ -294,9 +325,14 @@ pub enum LevelOneFuturesOptionField {
 impl LevelOneFuturesOptionField {
     /// Return all 32 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=31)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use LevelOneFuturesOptionField::*;
+        vec![
+            Symbol, BidPrice, AskPrice, LastPrice, BidSize, AskSize, AskId, BidId,
+            TotalVolume, LastSize, QuoteTime, TradeTime, HighPrice, LowPrice, ClosePrice,
+            ExchangeId, Description, LastId, OpenPrice, NetChange, FuturePercentChange,
+            ExchangeName, SecurityStatus, OpenInterest, Mark, Tick, TickAmount, Product,
+            FuturePriceFormat, FutureTradingHours, FutureIsTradable, FutureMultiplier,
+        ]
     }
 }
 
@@ -320,9 +356,8 @@ pub enum ChartEquityField {
 impl ChartEquityField {
     /// Return all 9 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=8)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use ChartEquityField::*;
+        vec![Symbol, OpenPrice, HighPrice, LowPrice, ClosePrice, Volume, Sequence, ChartTime, ChartDay]
     }
 }
 
@@ -344,9 +379,8 @@ pub enum ChartFuturesField {
 impl ChartFuturesField {
     /// Return all 7 fields.
     pub fn all() -> Vec<Self> {
-        (0u32..=6)
-            .map(|n| unsafe { std::mem::transmute(n) })
-            .collect()
+        use ChartFuturesField::*;
+        vec![Symbol, ChartTime, OpenPrice, HighPrice, LowPrice, ClosePrice, Volume]
     }
 }
 

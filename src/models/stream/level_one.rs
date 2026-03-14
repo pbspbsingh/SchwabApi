@@ -157,7 +157,7 @@ impl TryFrom<&Value> for LevelOneEquityEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = LevelOneEquityEvent::default();
         for (k, val) in obj {
             match k.as_str() {
@@ -345,7 +345,7 @@ impl TryFrom<&Value> for LevelOneOptionEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = LevelOneOptionEvent::default();
         for (k, val) in obj {
             match k.as_str() {
@@ -507,7 +507,7 @@ impl TryFrom<&Value> for LevelOneFuturesEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = LevelOneFuturesEvent::default();
         for (k, val) in obj {
             match k.as_str() {
@@ -632,7 +632,7 @@ impl TryFrom<&Value> for LevelOneForexEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = LevelOneForexEvent::default();
         for (k, val) in obj {
             match k.as_str() {
@@ -750,7 +750,7 @@ impl TryFrom<&Value> for LevelOneFuturesOptionsEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = LevelOneFuturesOptionsEvent::default();
         for (k, val) in obj {
             match k.as_str() {

@@ -26,7 +26,7 @@ impl TryFrom<&Value> for AccountActivityEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = AccountActivityEvent::default();
         for (k, val) in obj {
             match k.as_str() {

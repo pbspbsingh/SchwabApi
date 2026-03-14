@@ -204,8 +204,12 @@ impl StreamClientInner {
 
         if let Some(data_items) = incoming.data {
             for data in data_items {
-                let senders = self.senders.lock().await;
-                if let Some(tx) = senders.get(&data.service) {
+                // Clone the Sender (cheap — it's Arc-backed) and drop the lock
+                // *before* awaiting send, so the lock is never held across an
+                // await point. Holding it across send().await would deadlock if
+                // subscribe() tries to acquire senders while the channel is full.
+                let tx = self.senders.lock().await.get(&data.service).cloned();
+                if let Some(tx) = tx {
                     for item in data.content {
                         if tx.send(item).await.is_err() {
                             // Receiver dropped — cleaned up lazily.

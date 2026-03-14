@@ -41,7 +41,7 @@ impl TryFrom<&Value> for ChartEquityEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = ChartEquityEvent::default();
         for (k, val) in obj {
             match k.as_str() {
@@ -88,7 +88,7 @@ impl TryFrom<&Value> for ChartFuturesEvent {
     fn try_from(v: &Value) -> Result<Self> {
         let obj = v
             .as_object()
-            .ok_or_else(|| Error::Json(serde_json::from_str::<()>("").unwrap_err()))?;
+            .ok_or_else(|| Error::Api { status: 0, body: "expected a JSON object".to_string() })?;
         let mut e = ChartFuturesEvent::default();
         for (k, val) in obj {
             match k.as_str() {
