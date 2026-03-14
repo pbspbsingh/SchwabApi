@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    println!("schwab_api — use as a library");
 }

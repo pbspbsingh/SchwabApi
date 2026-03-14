@@ -276,16 +276,18 @@ prior state after a reconnect.
 ### `StreamClient`
 
 ```rust
-pub struct StreamClient {
-    // internal: Arc<StreamClientInner>
-}
+pub struct StreamClient { /* internal */ }
 
 impl StreamClient {
     /// Connect, authenticate, and start the background recv+reconnect loop.
-    pub async fn connect(tokens: Arc<TokenManager>, preferences: UserPreferences) -> Result<Self>;
+    /// Returns Arc<StreamClient> — Schwab only allows one streaming connection
+    /// per account. Clone the Arc to share across tasks; the connection is torn
+    /// down automatically when the last Arc is dropped.
+    pub async fn connect(tokens: Arc<TokenManager>, preferences: UserPreferences) -> Result<Arc<Self>>;
 
-    /// Signal clean logout; background task exits after the current session closes.
-    pub async fn logout(self) -> Result<()>;
+    /// Explicit graceful logout; waits for the background task to finish.
+    /// Optional — dropping the last Arc<StreamClient> has the same effect.
+    pub async fn logout(&self) -> Result<()>;
 }
 ```
 
@@ -573,9 +575,9 @@ let client = SchwabClient::new(Arc::clone(&tokens));
 let accounts = client.get_account_numbers().await?;
 let quote = client.get_quote("AAPL", None).await?;
 
-// Streaming
+// Streaming — Arc<StreamClient>; connection lives as long as any clone exists
 let prefs = client.get_user_preferences().await?;
-let stream = StreamClient::connect(Arc::clone(&tokens), prefs).await?;
+let stream = StreamClient::connect(Arc::clone(&tokens), prefs).await?;  // Arc<StreamClient>
 
 let mut rx = stream
     .level_one_equities()
