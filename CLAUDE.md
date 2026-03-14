@@ -1,4 +1,4 @@
-# SchwabApi — Rust Client Implementation Plan
+# SchwabApi — Rust Client
 
 ## Project Overview
 
@@ -9,7 +9,8 @@ of the `schwab-py` reference implementation. Streaming is the primary use case.
 
 ## Status
 
-All 5 phases complete. Compiles cleanly (`cargo check` — zero errors, zero warnings).
+Complete. Compiles cleanly (`cargo check` — zero errors, zero warnings).
+All streaming field IDs verified against `schwab-py` (alexgolec/schwab-py).
 
 ### What is built
 
@@ -18,13 +19,14 @@ All 5 phases complete. Compiles cleanly (`cargo check` — zero errors, zero war
 | `src/error.rs` | ✅ Unified `Error` enum + `Result<T>` alias |
 | `src/auth.rs` | ✅ `OAuthConfig`, `TokenManager::create()` — opaque, self-contained |
 | `src/client.rs` | ✅ `SchwabClient` — full REST API |
-| `src/stream/mod.rs` | ✅ `StreamClient` — connect, recv_loop, reconnect, logout |
+| `src/stream/mod.rs` | ✅ `StreamClient` — connect, recv_loop, reconnect, heartbeat watchdog, logout |
 | `src/stream/protocol.rs` | ✅ Wire types (internal) |
-| `src/stream/fields.rs` | ✅ All 10 field enums |
+| `src/stream/fields.rs` | ✅ All 10 field enums — verified against current Schwab API |
 | `src/stream/services.rs` | ✅ All 13 streaming services |
 | `src/models/` | ✅ All REST models |
-| `src/models/stream/` | ✅ All streaming event structs |
+| `src/models/stream/` | ✅ All streaming event structs — field IDs match current Schwab API |
 | `src/main.rs` | ✅ Demo: AAPL quote + L1 streaming |
+| `README.md` | ✅ Full usage documentation |
 
 ### Key design decisions made during implementation
 
@@ -39,6 +41,12 @@ All 5 phases complete. Compiles cleanly (`cargo check` — zero errors, zero war
   `add_symbols()` expands the subscription server-side, `unsubscribe()` shrinks it.
 - **All file I/O is `tokio::fs`** — no `std::fs` in async functions.
 - **`Error::Io`** added to cover `std::io::Error` from the TLS callback server.
+- **Heartbeat watchdog** — if no message received for 15 s (Schwab heartbeats every ~10 s),
+  connection is assumed stuck, torn down, and retried via the reconnect loop.
+- **Streaming field IDs match current Schwab API** — verified against `schwab-py`. Original
+  implementation was based on old TDA field numbering; corrected for `LevelOneEquityField`
+  (fields 10–51), `LevelOneOptionField` (fields 11–55), `LevelOneFuturesField` (fields 6–7
+  swapped), `LevelOneFuturesOptionField` (fields 15–31), and `ChartEquityField` (fields 1–6).
 
 ---
 
