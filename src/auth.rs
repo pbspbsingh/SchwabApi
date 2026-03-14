@@ -1,6 +1,6 @@
 //! OAuth 2.0 token management for the Schwab API.
 //!
-//! # First-time setup
+//! # Usage
 //! ```no_run
 //! # async fn example() -> schwab_api::Result<()> {
 //! use schwab_api::auth::{OAuthConfig, TokenManager};
@@ -12,23 +12,9 @@
 //!     redirect_uri: "https://127.0.0.1".to_string(),
 //! };
 //!
-//! let manager = TokenManager::new(config, Path::new("tokens.json"));
-//! println!("Visit: {}", manager.authorize_url());
-//! // paste the `code` query parameter from the redirect URL:
-//! manager.exchange_code("paste-code-here").await?;
-//! // tokens.json is now saved automatically
-//! # Ok(()) }
-//! ```
-//!
-//! # Subsequent runs
-//! ```no_run
-//! # async fn example() -> schwab_api::Result<()> {
-//! use schwab_api::auth::{OAuthConfig, TokenManager};
-//! use std::path::Path;
-//!
-//! let config = OAuthConfig { /* ... */ # app_key: String::new(), app_secret: String::new(), redirect_uri: String::new() };
-//! let manager = TokenManager::load(config, Path::new("tokens.json"))?;
-//! // tokens are loaded and will refresh automatically
+//! // First run: prints the authorize URL and prompts for the code.
+//! // Subsequent runs: loads tokens from file silently.
+//! let tokens = TokenManager::create(config, Path::new("tokens.json")).await?;
 //! # Ok(()) }
 //! ```
 
@@ -53,18 +39,22 @@ pub struct OAuthConfig {
     pub app_key: String,
     /// The application secret (client_secret).
     pub app_secret: String,
-    /// The redirect URI registered for this application (must be `https://127.0.0.1`).
+    /// The redirect URI registered for this application (e.g. `https://127.0.0.1:8443`).
     pub redirect_uri: String,
+    /// Path to the TLS certificate file (PEM) used by the local callback server.
+    pub tls_cert_path: PathBuf,
+    /// Path to the TLS private key file (PEM) used by the local callback server.
+    pub tls_key_path: PathBuf,
 }
 
 // ── TokenSet (internal) ───────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TokenSet {
-    access_token:        String,
-    refresh_token:       String,
-    expires_at:          DateTime<Utc>,
-    refresh_expires_at:  DateTime<Utc>,
+    access_token:       String,
+    refresh_token:      String,
+    expires_at:         DateTime<Utc>,
+    refresh_expires_at: DateTime<Utc>,
 }
 
 // ── Raw token response from Schwab OAuth endpoint ────────────────────────────
@@ -81,13 +71,8 @@ struct RawTokenResponse {
 
 // ── TokenManager ─────────────────────────────────────────────────────────────
 
-/// Manages OAuth tokens for the Schwab API.
-///
-/// Tokens are persisted automatically to the file provided at construction.
-/// Access tokens are refreshed transparently before expiry; no manual token
-/// handling is required.
-///
-/// Share across the application via `Arc<TokenManager>`.
+/// Opaque token manager — pass to [`SchwabClient`][crate::SchwabClient] and
+/// [`StreamClient`][crate::StreamClient]. Tokens refresh automatically.
 pub struct TokenManager {
     config:     OAuthConfig,
     token_path: PathBuf,
@@ -96,76 +81,43 @@ pub struct TokenManager {
 }
 
 impl TokenManager {
-    /// Create a new manager for **first-time setup**.
+    /// Return a ready-to-use `Arc<TokenManager>`.
     ///
-    /// No token file is required to exist yet. Call [`authorize_url`][Self::authorize_url]
-    /// to get the login URL, then [`exchange_code`][Self::exchange_code] to complete
-    /// authorization. Tokens are saved to `token_path` automatically.
-    pub fn new(config: OAuthConfig, token_path: &Path) -> Arc<Self> {
-        Arc::new(Self {
-            config,
+    /// - If `token_path` exists and the refresh token is still valid, tokens
+    ///   are loaded silently.
+    /// - Otherwise the OAuth flow is started: the authorize URL is printed to
+    ///   stdout, the user is prompted to paste the redirect code, and the
+    ///   resulting tokens are saved to `token_path` automatically.
+    pub async fn create(config: OAuthConfig, token_path: &Path) -> Result<Arc<Self>> {
+        let manager = Arc::new(Self {
             token_path: token_path.to_path_buf(),
             tokens: RwLock::new(None),
             http: reqwest::Client::new(),
-        })
-    }
+            config,
+        });
 
-    /// Load an existing token file and create a manager ready for immediate use.
-    ///
-    /// Returns an error if the file does not exist or cannot be parsed.
-    /// If the refresh token has expired, an error is returned and the user
-    /// must re-authorize via [`new`][Self::new] + [`exchange_code`][Self::exchange_code].
-    pub fn load(config: OAuthConfig, token_path: &Path) -> Result<Arc<Self>> {
-        let data = std::fs::read(token_path).map_err(|e| Error::Api {
-            status: 0,
-            body: format!("failed to read token file '{}': {e}", token_path.display()),
-        })?;
-        let tokens: TokenSet = serde_json::from_slice(&data)?;
-
-        if tokens.refresh_expires_at < Utc::now() {
-            return Err(Error::TokenExpired);
+        // Try loading an existing token file.
+        if token_path.exists() {
+            match manager.try_load().await {
+                Ok(()) => {
+                    tracing::info!("loaded tokens from '{}'", token_path.display());
+                    return Ok(manager);
+                }
+                Err(e) => {
+                    tracing::warn!("token file invalid or expired ({e}), re-authorizing");
+                }
+            }
         }
 
-        Ok(Arc::new(Self {
-            config,
-            token_path: token_path.to_path_buf(),
-            tokens: RwLock::new(Some(tokens)),
-            http: reqwest::Client::new(),
-        }))
+        // No valid tokens — run the interactive OAuth flow.
+        manager.run_oauth_flow().await?;
+        Ok(manager)
     }
 
-    /// Build the URL to which the user must navigate to authorize the application.
-    pub fn authorize_url(&self) -> String {
-        format!(
-            "{}?response_type=code&client_id={}&redirect_uri={}",
-            AUTH_ENDPOINT,
-            url::form_urlencoded::byte_serialize(self.config.app_key.as_bytes())
-                .collect::<String>(),
-            url::form_urlencoded::byte_serialize(self.config.redirect_uri.as_bytes())
-                .collect::<String>(),
-        )
-    }
+    // ── pub(crate) ────────────────────────────────────────────────────────────
 
-    /// Exchange the authorization code from the OAuth redirect for tokens.
-    ///
-    /// The code is the `code` query parameter in the redirect URL.
-    /// Tokens are saved to the token file automatically.
-    pub async fn exchange_code(&self, code: &str) -> Result<()> {
-        let params = [
-            ("grant_type",    "authorization_code"),
-            ("code",          code),
-            ("redirect_uri",  &self.config.redirect_uri),
-        ];
-        let token_set = self.post_token_request(&params).await?;
-        self.store_and_save(token_set).await
-    }
-
-    /// Return a valid access token string, refreshing silently if needed.
-    ///
-    /// Called internally by [`SchwabClient`][crate::SchwabClient] and
-    /// [`StreamClient`][crate::StreamClient]; application code rarely needs
-    /// to call this directly.
-    pub async fn get_valid_token(&self) -> Result<String> {
+    /// Return a valid access token, refreshing silently if within 60 s of expiry.
+    pub(crate) async fn get_valid_token(&self) -> Result<String> {
         // Fast path: read lock only.
         {
             let guard = self.tokens.read().await;
@@ -179,7 +131,7 @@ impl TokenManager {
         let mut guard = self.tokens.write().await;
         let tokens = guard.as_mut().ok_or(Error::TokenExpired)?;
 
-        // Re-check: another task may have refreshed while we waited.
+        // Re-check: another task may have already refreshed.
         if tokens.expires_at - Utc::now() > Duration::seconds(60) {
             return Ok(tokens.access_token.clone());
         }
@@ -194,30 +146,133 @@ impl TokenManager {
         let access = new_tokens.access_token.clone();
         *tokens = new_tokens;
 
-        // Persist updated tokens in the background — don't block the caller.
+        // Persist in the background — don't block the caller.
         let serialized = serde_json::to_string_pretty(&*tokens)?;
         let path = self.token_path.clone();
         tokio::spawn(async move {
             if let Err(e) = tokio::fs::write(&path, serialized).await {
-                tracing::warn!("failed to persist refreshed tokens to '{}': {e}", path.display());
+                tracing::warn!("failed to save refreshed tokens to '{}': {e}", path.display());
             }
         });
 
         Ok(access)
     }
 
-    // ── private helpers ───────────────────────────────────────────────────────
+    // ── private ───────────────────────────────────────────────────────────────
+
+    async fn try_load(&self) -> Result<()> {
+        let data = tokio::fs::read(&self.token_path).await.map_err(|e| Error::Api {
+            status: 0,
+            body: format!("read error: {e}"),
+        })?;
+        let token_set: TokenSet = serde_json::from_slice(&data)?;
+        if token_set.refresh_expires_at < Utc::now() {
+            return Err(Error::TokenExpired);
+        }
+        *self.tokens.write().await = Some(token_set);
+        Ok(())
+    }
+
+    async fn run_oauth_flow(&self) -> Result<()> {
+        use std::sync::Arc;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use tokio_rustls::TlsAcceptor;
+
+        // Parse host and port from the redirect URI.
+        let redirect = url::Url::parse(&self.config.redirect_uri).map_err(|e| Error::Api {
+            status: 0,
+            body: format!("invalid redirect_uri: {e}"),
+        })?;
+        let host = redirect.host_str().unwrap_or("127.0.0.1").to_string();
+        let port = redirect.port().unwrap_or(8443);
+        let bind_addr = format!("{host}:{port}");
+
+        // Load TLS cert and key from the paths provided in config.
+        let cert_pem = tokio::fs::read(&self.config.tls_cert_path).await?;
+        let key_pem  = tokio::fs::read(&self.config.tls_key_path).await?;
+
+        let certs = rustls_pemfile::certs(&mut cert_pem.as_slice())
+            .collect::<std::io::Result<Vec<_>>>()?;
+        let key = rustls_pemfile::private_key(&mut key_pem.as_slice())?
+            .ok_or_else(|| Error::Api {
+                status: 0,
+                body: format!("no private key found in '{}'", self.config.tls_key_path.display()),
+            })?;
+
+        let tls_config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(|e| Error::Api { status: 0, body: format!("TLS config failed: {e}") })?;
+        let acceptor = TlsAcceptor::from(Arc::new(tls_config));
+
+        // Bind before printing the URL so we're ready to receive the redirect.
+        let listener = TcpListener::bind(&bind_addr).await.map_err(|e| Error::Api {
+            status: 0,
+            body: format!("failed to bind {bind_addr}: {e}"),
+        })?;
+
+        // Print the authorize URL for the user to open manually.
+        let auth_url = format!(
+            "{}?response_type=code&client_id={}&redirect_uri={}",
+            AUTH_ENDPOINT,
+            url::form_urlencoded::byte_serialize(self.config.app_key.as_bytes())
+                .collect::<String>(),
+            url::form_urlencoded::byte_serialize(self.config.redirect_uri.as_bytes())
+                .collect::<String>(),
+        );
+        println!("\nOpen this URL in your browser to authorize:\n\n  {auth_url}\n");
+
+        // Accept exactly one HTTPS connection — the OAuth redirect.
+        let (tcp, _) = listener.accept().await?;
+        let mut tls = acceptor.accept(tcp).await?;
+
+        // Read the HTTP request and extract the `code` query parameter.
+        let mut buf = vec![0u8; 4096];
+        let n = tls.read(&mut buf).await?;
+        let request = String::from_utf8_lossy(&buf[..n]);
+
+        // First request line: "GET /?code=ABC123&session=XYZ HTTP/1.1"
+        let code = request
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1))
+            .and_then(|path| path.split_once('?').map(|(_, q)| q))
+            .and_then(|query| {
+                url::form_urlencoded::parse(query.as_bytes())
+                    .find(|(k, _)| k == "code")
+                    .map(|(_, v)| v.into_owned())
+            })
+            .ok_or_else(|| Error::Api {
+                status: 0,
+                body: "OAuth redirect did not contain a `code` parameter".to_string(),
+            })?;
+
+        // Respond so the browser shows a success page.
+        let body = "<html><body><h1>Authorization successful — you can close this tab.</h1></body></html>";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(), body
+        );
+        let _ = tls.write_all(response.as_bytes()).await;
+
+        // Exchange the code for tokens.
+        let params = [
+            ("grant_type",   "authorization_code"),
+            ("code",         code.as_str()),
+            ("redirect_uri", self.config.redirect_uri.as_str()),
+        ];
+        let token_set = self.post_token_request(&params).await?;
+        self.store_and_save(token_set).await
+    }
 
     async fn store_and_save(&self, token_set: TokenSet) -> Result<()> {
         let serialized = serde_json::to_string_pretty(&token_set)?;
-        tokio::fs::write(&self.token_path, serialized)
+        tokio::fs::write(&self.token_path, &serialized)
             .await
             .map_err(|e| Error::Api {
                 status: 0,
-                body: format!(
-                    "failed to write token file '{}': {e}",
-                    self.token_path.display()
-                ),
+                body: format!("failed to write '{}': {e}", self.token_path.display()),
             })?;
         *self.tokens.write().await = Some(token_set);
         Ok(())
@@ -225,8 +280,8 @@ impl TokenManager {
 
     async fn do_refresh(&self, refresh_token: &str) -> Result<TokenSet> {
         let params = [
-            ("grant_type",     "refresh_token"),
-            ("refresh_token",  refresh_token),
+            ("grant_type",    "refresh_token"),
+            ("refresh_token", refresh_token),
         ];
         self.post_token_request(&params).await
     }
@@ -254,7 +309,9 @@ impl TokenManager {
             access_token:       raw.access_token.unwrap_or_default(),
             refresh_token:      raw.refresh_token.unwrap_or_default(),
             expires_at:         now + Duration::seconds(raw.expires_in.unwrap_or(1800)),
-            refresh_expires_at: now + Duration::seconds(raw.refresh_token_expires_in.unwrap_or(604_800)),
+            refresh_expires_at: now + Duration::seconds(
+                raw.refresh_token_expires_in.unwrap_or(604_800),
+            ),
         })
     }
 }

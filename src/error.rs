@@ -9,6 +9,10 @@ pub enum Error {
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 
+    /// An I/O error (e.g. from the local TLS callback server).
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
     /// JSON serialization/deserialization failure.
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),

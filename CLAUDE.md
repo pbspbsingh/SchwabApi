@@ -7,13 +7,48 @@ of the `schwab-py` reference implementation. Streaming is the primary use case.
 
 ---
 
+## Status
+
+All 5 phases complete. Compiles cleanly (`cargo check` — zero errors, zero warnings).
+
+### What is built
+
+| File | Status |
+|------|--------|
+| `src/error.rs` | ✅ Unified `Error` enum + `Result<T>` alias |
+| `src/auth.rs` | ✅ `OAuthConfig`, `TokenManager::create()` — opaque, self-contained |
+| `src/client.rs` | ✅ `SchwabClient` — full REST API |
+| `src/stream/mod.rs` | ✅ `StreamClient` — connect, recv_loop, reconnect, logout |
+| `src/stream/protocol.rs` | ✅ Wire types (internal) |
+| `src/stream/fields.rs` | ✅ All 10 field enums |
+| `src/stream/services.rs` | ✅ All 13 streaming services |
+| `src/models/` | ✅ All REST models |
+| `src/models/stream/` | ✅ All streaming event structs |
+| `src/main.rs` | ✅ Demo: AAPL quote + L1 streaming |
+
+### Key design decisions made during implementation
+
+- **`TokenManager` is fully opaque** — single entry point `TokenManager::create(config, path)`
+  handles file load, expiry check, and full OAuth flow internally. No public methods.
+- **OAuth callback is a local HTTPS server** — `OAuthConfig` takes `tls_cert_path` / `tls_key_path`
+  (user-provided PEM files). On first run the authorize URL is printed; the server listens for
+  Schwab's redirect and extracts the `code` automatically.
+- **`StreamClient::connect()` returns `Arc<StreamClient>`** — Schwab allows one streaming
+  connection per account. Connection is torn down when the last `Arc` is dropped (`Drop` impl).
+- **Streaming subscription API**: `subscribe()` returns `mpsc::Receiver` (first call only),
+  `add_symbols()` expands the subscription server-side, `unsubscribe()` shrinks it.
+- **All file I/O is `tokio::fs`** — no `std::fs` in async functions.
+- **`Error::Io`** added to cover `std::io::Error` from the TLS callback server.
+
+---
+
 ## Design Principles
 
 1. **Typed everything** — every request parameter and response field is a named Rust type (struct/enum). No generic `Value` or `HashMap<String, serde_json::Value>` in the public API.
-2. **Async-first** — tokio throughout; `reqwest` for HTTP, `tokio-tungstenite` for WebSocket.
+2. **Async-first** — tokio throughout; `reqwest` for HTTP, `tokio-tungstenite` for WebSocket. All file I/O via `tokio::fs`.
 3. **Streaming via bounded mpsc** — `tokio::sync::mpsc::channel` with a caller-specified capacity. No broadcast (lossy). Back-pressure propagates naturally.
 4. **Builder pattern for requests** — optional fields use typed builders, not function signatures with 15 `Option<_>` arguments.
-5. **Explicit errors** — one `Error` enum per module; no `Box<dyn std::error::Error>`.
+5. **Explicit errors** — one `Error` enum; no `Box<dyn std::error::Error>`.
 6. **No hidden global state** — `SchwabClient` and `StreamClient` are plain structs; callers own them.
 
 ---
@@ -30,9 +65,9 @@ schwab_api/
     ├── auth.rs             ← OAuth2 token management
     ├── client.rs           ← REST HTTP client (SchwabClient)
     ├── stream/
-    │   ├── mod.rs          ← StreamClient, connect()
+    │   ├── mod.rs          ← StreamClient, connect(), recv_loop
     │   ├── protocol.rs     ← WebSocket wire format (login/subs JSON)
-    │   ├── services.rs     ← per-service sub/unsub/add helpers
+    │   ├── services.rs     ← per-service sub/add_symbols/unsubs helpers
     │   └── fields.rs       ← all field enums (typed numeric→name mapping)
     └── models/
         ├── mod.rs
@@ -56,60 +91,68 @@ schwab_api/
 
 ---
 
-## Dependencies (Cargo.toml plan)
+## Dependencies
 
 ```toml
 [dependencies]
-tokio          = { version = "1", features = ["full"] }
-reqwest        = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+tokio             = { version = "1", features = ["full"] }
+reqwest           = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
-serde          = { version = "1", features = ["derive"] }
-serde_json     = "1"
-thiserror      = "2"
-url            = "2"
-chrono         = { version = "0.4", features = ["serde"] }
-tracing        = "0.1"
-
-[dev-dependencies]
-tokio          = { version = "1", features = ["full", "test-util"] }
+futures-util      = "0.3"
+serde             = { version = "1", features = ["derive"] }
+serde_json        = "1"
+thiserror         = "2"
+url               = "2"
+chrono            = { version = "0.4", features = ["serde"] }
+tracing           = "0.1"
+tracing-subscriber = "0.3"
+rustls            = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pemfile    = "2"
+tokio-rustls      = "0.26"
 ```
 
 ---
 
 ## Authentication (`auth.rs`)
 
-### Flow
-Charles Schwab uses OAuth 2.0 Authorization Code flow:
-
-1. User navigates to `https://api.schwabapi.com/v1/oauth/authorize?response_type=code&client_id=<APP_KEY>&redirect_uri=<REDIRECT_URI>`
-2. After login, Schwab redirects to `https://127.0.0.1` with `?code=<AUTH_CODE>`
-3. Exchange auth code for tokens: `POST https://api.schwabapi.com/v1/oauth/token`
-4. Receive `access_token` (30 min TTL) + `refresh_token` (~7 day TTL)
-5. Auto-refresh access token using refresh token before expiry
-
-### Structs
+### Public API — one call
 
 ```rust
-pub struct TokenSet {
-    pub access_token:  String,
-    pub refresh_token: String,
-    pub expires_at:    DateTime<Utc>,   // access token expiry
-    pub refresh_expires_at: DateTime<Utc>,
-}
+let tokens = TokenManager::create(config, Path::new("tokens.json")).await?;
+```
 
+- If `tokens.json` exists and refresh token is valid → loaded silently.
+- If file missing or refresh token expired → prints authorize URL to stdout, starts local
+  HTTPS server, waits for Schwab's redirect, extracts `code`, exchanges for tokens, saves file.
+
+### `OAuthConfig`
+
+```rust
 pub struct OAuthConfig {
-    pub app_key:      String,
-    pub app_secret:   String,
-    pub redirect_uri: String,
+    pub app_key:       String,
+    pub app_secret:    String,
+    pub redirect_uri:  String,    // e.g. "https://127.0.0.1:8443"
+    pub tls_cert_path: PathBuf,   // PEM cert for the local callback server
+    pub tls_key_path:  PathBuf,   // PEM key for the local callback server
 }
 ```
 
-### `TokenManager`
-- Holds `Arc<RwLock<TokenSet>>`
-- Exposes `async fn get_valid_token() -> Result<String>` — refreshes automatically if within 60s of expiry
-- Exposes `fn authorize_url() -> Url` — generates the user-facing login URL
-- Exposes `async fn exchange_code(code: &str) -> Result<TokenSet>`
-- Exposes `async fn save_token(path: &Path)` / `fn load_token(path: &Path) -> Result<TokenSet>` — JSON file persistence
+### `TokenManager` — opaque
+
+No public methods. `get_valid_token()` is `pub(crate)`, used by `SchwabClient` and `StreamClient`.
+Auto-refreshes access token when within 60s of expiry. Persists refreshed tokens to file
+asynchronously (fire-and-forget `tokio::spawn`).
+
+### OAuth callback server
+
+On first run:
+1. Loads TLS cert/key from `tls_cert_path` / `tls_key_path` (user-provided PEM files)
+2. Binds `TcpListener` on the host:port from `redirect_uri`
+3. Prints authorize URL
+4. Accepts one HTTPS connection (Schwab's redirect)
+5. Parses `code` from the request query string
+6. Sends HTML success page
+7. Exchanges code for tokens, saves to file
 
 ---
 
@@ -119,53 +162,51 @@ pub struct OAuthConfig {
 
 ```rust
 pub struct SchwabClient {
-    http:    reqwest::Client,
-    tokens:  Arc<TokenManager>,
-    base_url: Url,  // https://api.schwabapi.com/trader/v1/
+    http:   reqwest::Client,
+    tokens: Arc<TokenManager>,
 }
 ```
 
-All methods are `async` and return `Result<T, Error>`.
-The client injects `Authorization: Bearer <token>` automatically via a middleware wrapper around `reqwest`.
+All methods `async`, return `Result<T>`. `Authorization: Bearer` injected automatically.
 
 ### Method Catalog
 
 #### Accounts
 - `get_account_numbers() -> Vec<AccountNumber>`
-- `get_account(account_hash: &str, fields: Option<AccountFields>) -> Account`
-- `get_accounts(fields: Option<AccountFields>) -> Vec<Account>`
-- `get_user_preferences() -> UserPreferences`  ← also used by StreamClient
+- `get_account(hash, fields) -> Account`
+- `get_accounts(fields) -> Vec<Account>`
+- `get_user_preferences() -> UserPreferences`
 
 #### Quotes
-- `get_quote(symbol: &str, fields: Option<QuoteFields>) -> Quote`
-- `get_quotes(symbols: &[&str], fields: Option<QuoteFields>, indicative: Option<bool>) -> HashMap<String, Quote>`
+- `get_quote(symbol, fields) -> QuoteResponse`
+- `get_quotes(symbols, fields, indicative) -> QuotesMap`
 
 #### Price History
-- `get_price_history(req: PriceHistoryRequest) -> PriceHistory`
+- `get_price_history(req) -> PriceHistory`
 - Convenience wrappers: `get_price_history_every_minute`, `_five_minutes`, `_day`, `_week`, etc.
 
 #### Options
-- `get_option_chain(req: OptionChainRequest) -> OptionChain`
+- `get_option_chain(req) -> OptionChain`
 
 #### Instruments
-- `get_instruments(symbols: &[&str], projection: Projection) -> Vec<Instrument>`
-- `get_instrument_by_cusip(cusip: &str) -> Instrument`
+- `get_instruments(symbols, projection) -> Vec<Instrument>`
+- `get_instrument_by_cusip(cusip) -> Instrument`
 
 #### Orders
-- `place_order(account_hash: &str, order: &Order) -> OrderId`
-- `get_order(account_hash: &str, order_id: OrderId) -> Order`
-- `get_orders_for_account(account_hash: &str, req: GetOrdersRequest) -> Vec<Order>`
-- `get_orders_for_all_accounts(req: GetOrdersRequest) -> Vec<Order>`
-- `cancel_order(account_hash: &str, order_id: OrderId) -> ()`
-- `replace_order(account_hash: &str, order_id: OrderId, order: &Order) -> ()`
+- `place_order(hash, order) -> OrderId`
+- `get_order(hash, order_id) -> Order`
+- `get_orders_for_account(hash, req) -> Vec<Order>`
+- `get_orders_for_all_accounts(req) -> Vec<Order>`
+- `cancel_order(hash, order_id) -> ()`
+- `replace_order(hash, order_id, order) -> ()`
 
 #### Transactions
-- `get_transaction(account_hash: &str, tx_id: TransactionId) -> Transaction`
-- `get_transactions(account_hash: &str, req: GetTransactionsRequest) -> Vec<Transaction>`
+- `get_transaction(hash, tx_id) -> Transaction`
+- `get_transactions(hash, req) -> Vec<Transaction>`
 
 #### Market Data
-- `get_movers(index: Index, sort: SortOrder, frequency: MoverFrequency) -> Vec<Mover>`
-- `get_market_hours(markets: &[Market], date: NaiveDate) -> MarketHours`
+- `get_movers(index, sort, frequency) -> Vec<Mover>`
+- `get_market_hours(markets, date) -> MarketHours`
 
 ---
 
@@ -175,7 +216,7 @@ The client injects `Authorization: Bearer <token>` automatically via a middlewar
 
 ```
                 ┌──────────────────────────────────────────────┐
-                │  StreamClient                                │
+                │  StreamClient  (Arc<StreamClientInner>)      │
                 │                                              │
                 │  ws_sink ──► WebSocket ──► Schwab server    │
                 │  ws_stream ◄──────────────────────────────  │
@@ -194,46 +235,18 @@ The client injects `Authorization: Bearer <token>` automatically via a middlewar
 ### Token Refresh and the Streaming Session
 
 **The access token is only used once** — in the initial `ADMIN/LOGIN` message. Schwab's streaming
-server does not invalidate an active WebSocket session when the 30-minute access token expires;
-the session is already authenticated. No mid-session token refresh is needed.
+server does not invalidate an active WebSocket session when the 30-minute access token expires.
+No mid-session token refresh is needed.
 
-The `Arc<TokenManager>` is held solely for **reconnection** after a dropped connection.
+`Arc<TokenManager>` is held solely for **reconnection** after a dropped connection.
 
 ### Automatic Transparent Reconnect
 
-The connection drop is fully handled inside `recv_loop`. Callers never see it — their
-`mpsc::Receiver<*Event>` handles remain valid and simply resume receiving data after reconnect.
-During the gap, data is missed silently; a `tracing::warn!` is emitted.
+Connection drops are fully handled inside `recv_loop`. Callers never see them — their
+`mpsc::Receiver<*Event>` handles remain valid and resume after reconnect.
+A `tracing::warn!` is emitted during the gap.
 
-**Reconnect loop structure** (inside `recv_loop` task):
-
-```
-loop {
-    match session(inner).await {
-        SessionExit::Clean =>
-            break,                          // logout() was called — intentional stop
-
-        SessionExit::Error(e) => {
-            tracing::warn!("stream disconnected: {e}");
-            backoff.wait().await;           // exponential sleep
-            backoff.step();                 // double the delay, cap at MAX_BACKOFF
-            // fall through → retry session()
-        }
-    }
-}
-// Only reached on clean exit or all mpsc receivers dropped.
-// Close all senders so any lingering receivers get None.
-```
-
-**`session(inner)`** does the per-connection lifecycle:
-1. `TokenManager::get_valid_token()` — refreshes if needed
-2. Dial WSS (`tokio_tungstenite::connect_async`)
-3. Send `ADMIN/LOGIN`, await response
-4. Replay all entries in `inner.active_subs` (SUBS for each service)
-5. Run the read loop until a WebSocket error or close frame
-6. Return `SessionExit::Error(...)` so the outer loop can retry
-
-**Backoff schedule** (no external crate needed):
+**Backoff schedule:**
 
 | Attempt | Delay |
 |---------|-------|
@@ -244,231 +257,76 @@ loop {
 | 5 | 16 s |
 | 6+ | 30 s (cap) |
 
-Jitter (±20%) added to each delay to avoid thundering-herd if many clients reconnect at once.
+Jitter (0–399 ms, from subsecond system time) applied to each delay.
+Backoff resets on successful reconnect.
+Loop exits early if all `mpsc::Sender` handles are closed (no consumers left).
 
-On **successful reconnect** the backoff resets to 1 s.
-
-**Early exit condition**: if all `mpsc::Sender` handles report every receiver is dropped
-(i.e., `sender.is_closed()` for every service), there is no consumer left — the loop exits
-cleanly rather than reconnecting into the void.
-
-### Active Subscription Tracking
-
-`StreamClientInner` keeps:
-
-```rust
-struct ActiveSub {
-    service: &'static str,
-    keys:    Vec<String>,        // symbols
-    fields:  Vec<u32>,           // numeric field IDs
-}
-
-// inside StreamClientInner:
-active_subs: Mutex<Vec<ActiveSub>>
-```
-
-`subscribe()` inserts a new entry (errors if one already exists for that service).
-`add_symbols()` merges symbols+fields into the existing entry.
-`unsubscribe()` prunes symbols; removes the entry entirely if none remain.
-On reconnect, all `active_subs` are replayed using `SUBS` (not `ADD`) since the server has no
-prior state after a reconnect.
+On reconnect, all `active_subs` are replayed with `SUBS` (server has no prior state).
 
 ### `StreamClient`
 
 ```rust
-pub struct StreamClient { /* internal */ }
+pub struct StreamClient { /* Arc<StreamClientInner> + Mutex<Option<JoinHandle>> */ }
 
 impl StreamClient {
-    /// Connect, authenticate, and start the background recv+reconnect loop.
-    /// Returns Arc<StreamClient> — Schwab only allows one streaming connection
-    /// per account. Clone the Arc to share across tasks; the connection is torn
-    /// down automatically when the last Arc is dropped.
+    /// Returns Arc<StreamClient>. Connection torn down when last Arc is dropped.
     pub async fn connect(tokens: Arc<TokenManager>, preferences: UserPreferences) -> Result<Arc<Self>>;
 
-    /// Explicit graceful logout; waits for the background task to finish.
-    /// Optional — dropping the last Arc<StreamClient> has the same effect.
+    /// Explicit graceful logout with async wait. Optional — Drop handles it too.
     pub async fn logout(&self) -> Result<()>;
 }
+
+impl Drop for StreamClient {
+    // Sends shutdown signal + aborts background task.
+}
 ```
 
-The `recv_loop` is a `tokio::task::spawn`-ed async task that:
-1. Outer loop: reconnect with exponential backoff (see above)
-2. Inner session: reads raw WebSocket frames, parses JSON
-3. Routes `response` frames to pending `oneshot::Sender`
-4. Routes `data` frames by `service` name to the matching `mpsc::Sender`
-5. Routes `notify/heartbeat` — `tracing::trace!` only, no response
-6. On WebSocket error/close → exits inner session, outer loop retries
-
-### Subscription API Pattern
-
-Each service exposes three methods. Example for Level One Equities:
+### Subscription API
 
 ```rust
-pub struct LevelOneEquitySub {
-    client: Arc<StreamClientInner>,
-}
+// First call — creates channel, returns Receiver
+let rx = stream.level_one_equities()
+    .subscribe(&["AAPL"], &fields, capacity).await?;
 
-impl LevelOneEquitySub {
-    /// Initial subscription. Sends SUBS, creates the bounded channel, returns the Receiver.
-    /// Errors if already subscribed (call add_symbols instead).
-    pub async fn subscribe(
-        &self,
-        symbols:  &[&str],
-        fields:   &[LevelOneEquityField],
-        capacity: usize,
-    ) -> Result<mpsc::Receiver<LevelOneEquityEvent>>;
+// Expand — no new Receiver
+stream.level_one_equities()
+    .add_symbols(&["MSFT"], &fields).await?;
 
-    /// Add more symbols to an existing subscription. Sends ADD for symbols not already
-    /// subscribed. Must call subscribe() first.
-    pub async fn add_symbols(&self, symbols: &[&str], fields: &[LevelOneEquityField]) -> Result<()>;
-
-    /// Remove symbols. If all symbols are removed, sends UNSUBS and closes the channel.
-    pub async fn unsubscribe(&self, symbols: &[&str]) -> Result<()>;
-}
+// Shrink
+stream.level_one_equities()
+    .unsubscribe(&["AAPL"]).await?;
 ```
 
-`StreamClient` exposes accessors for each service:
-```rust
-impl StreamClient {
-    pub fn level_one_equities(&self)       -> LevelOneEquitySub;
-    pub fn level_one_options(&self)        -> LevelOneOptionSub;
-    pub fn level_one_futures(&self)        -> LevelOneFuturesSub;
-    pub fn level_one_forex(&self)          -> LevelOneForexSub;
-    pub fn level_one_futures_options(&self)-> LevelOneFuturesOptionsSub;
-    pub fn chart_equity(&self)             -> ChartEquitySub;
-    pub fn chart_futures(&self)            -> ChartFuturesSub;
-    pub fn nyse_book(&self)                -> NyseBookSub;
-    pub fn nasdaq_book(&self)              -> NasdaqBookSub;
-    pub fn options_book(&self)             -> OptionsBookSub;
-    pub fn screener_equity(&self)          -> ScreenerEquitySub;
-    pub fn screener_option(&self)          -> ScreenerOptionSub;
-    pub fn account_activity(&self)         -> AccountActivitySub;
-}
-```
+All 13 services: `level_one_equities`, `level_one_options`, `level_one_futures`,
+`level_one_forex`, `level_one_futures_options`, `chart_equity`, `chart_futures`,
+`nyse_book`, `nasdaq_book`, `options_book`, `screener_equity`, `screener_option`,
+`account_activity`.
 
-### Wire Protocol (`stream/protocol.rs`)
+### Streaming Event Structs
 
-Internal structs for JSON serialization only (not public).
-
-**Outgoing:**
-```rust
-// Envelope
-struct WireRequest<'a> { requests: Vec<WireRequestItem<'a>> }
-struct WireRequestItem<'a> {
-    service:                    &'a str,
-    requestid:                  String,
-    command:                    &'a str,
-    #[serde(rename = "SchwabClientCustomerId")]
-    schwab_client_customer_id:  &'a str,
-    #[serde(rename = "SchwabClientCorrelId")]
-    schwab_client_correl_id:    &'a str,
-    parameters:                 serde_json::Value,
-}
-```
-
-**Incoming:**
-```rust
-struct WireIncoming {
-    response: Option<Vec<WireResponse>>,
-    data:     Option<Vec<WireData>>,
-    notify:   Option<Vec<WireNotify>>,
-}
-struct WireResponse { requestid: String, service: String, command: String, content: WireResponseContent }
-struct WireResponseContent { code: i32, msg: String }
-struct WireData { service: String, command: String, timestamp: Option<i64>, content: Vec<serde_json::Value> }
-struct WireNotify { heartbeat: Option<i64> }
-```
-
-### Field Enums & Event Types (`stream/fields.rs`, `models/stream/`)
-
-Each service has:
-- A `*Field` enum listing all subscribable fields (numeric value via `repr(u32)` or `as u32`)
-- An `*Event` struct with `Option<T>` fields for every possible field (because Schwab sends partial updates)
-
-Example:
-```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[repr(u32)]
-pub enum LevelOneEquityField {
-    Symbol = 0,
-    BidPrice = 1,
-    AskPrice = 2,
-    LastPrice = 3,
-    BidSize = 4,
-    AskSize = 5,
-    // ... all 52 fields
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct LevelOneEquityEvent {
-    pub symbol:      String,   // field 0 — always present
-    pub bid_price:   Option<f64>,
-    pub ask_price:   Option<f64>,
-    pub last_price:  Option<f64>,
-    pub bid_size:    Option<u64>,
-    pub ask_size:    Option<u64>,
-    // ... all other fields as Option<T>
-    pub quote_time:  Option<DateTime<Utc>>,   // millis fields converted
-    pub trade_time:  Option<DateTime<Utc>>,
-}
-```
-
-The `*Event` deserialization maps numeric string keys (`"1"`, `"2"`) to struct fields using a custom `Deserialize` impl or a parse helper — **not** via serde attribute magic on the wire type, keeping protocol and model layers separate.
-
-Full field lists implemented:
-- `LevelOneEquityField` (52 fields)
-- `LevelOneOptionField` (56 fields)
-- `LevelOneFuturesField` (41 fields)
-- `LevelOneForexField` (30 fields)
-- `LevelOneFuturesOptionField` (32 fields)
-- `ChartEquityField` (9 fields)
-- `ChartFuturesField` (7 fields)
-- `BookField` / `BidField` / `AskField` (for Level 2 books)
-- `ScreenerField` (5 fields)
-- `AccountActivityField` (4 fields)
+All fields except `symbol` are `Option<T>` — Schwab sends partial updates only.
+Callers maintaining a full state snapshot must merge incoming events themselves.
+Millisecond timestamp fields are converted to `DateTime<Utc>`.
 
 ---
 
 ## Error Handling (`error.rs`)
 
 ```rust
-#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
-
-    #[error("WebSocket error: {0}")]
-    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
-
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    #[error("OAuth error: {code} — {message}")]
-    OAuth { code: String, message: String },
-
-    #[error("Stream login failed: code={code}, msg={msg}")]
-    StreamLoginFailed { code: i32, msg: String },
-
-    #[error("Unexpected stream response for requestid={requestid}")]
-    UnexpectedStreamResponse { requestid: String },
-
-    #[error("Stream subscription failed: code={code}, msg={msg}")]
-    SubscriptionFailed { code: i32, msg: String },
-
-    #[error("Already subscribed to service '{service}' — use add_symbols() to expand")]
-    AlreadySubscribed { service: &'static str },
-
-    #[error("Not subscribed to service '{service}' — call subscribe() first")]
-    NotSubscribed { service: &'static str },
-
-    #[error("Stream disconnected")]
+    Http(reqwest::Error),
+    WebSocket(tungstenite::Error),
+    Io(std::io::Error),
+    Json(serde_json::Error),
+    OAuth { code, message },
+    StreamLoginFailed { code, msg },
+    UnexpectedStreamResponse { requestid },
+    SubscriptionFailed { code, msg },
+    AlreadySubscribed { service },
+    NotSubscribed { service },
     StreamDisconnected,
-
-    #[error("Token expired — re-authentication required")]
     TokenExpired,
-
-    #[error("API error: status={status}, body={body}")]
-    Api { status: u16, body: String },
+    Api { status, body },
 }
 ```
 
@@ -476,52 +334,10 @@ pub enum Error {
 
 ## Concurrency Model for Streaming
 
-### Request serialization
-A single `tokio::sync::Mutex<()>` guards all outbound subscription commands (matching schwab-py's asyncio.Lock). This prevents interspersed request/response frames.
-
-### Response correlation
-Before sending any request, the caller stores a `oneshot::Sender<WireResponse>` in `Arc<Mutex<Option<oneshot::Sender<WireResponse>>>>`. The recv_loop delivers the next `response` frame to it and clears the slot.
-
-### Data fan-out
-The recv_loop holds a `HashMap<ServiceName, mpsc::Sender<serde_json::Value>>`. When `subscribe()` is called, it inserts a new sender. When the receiver is dropped, the next send returns `SendError` and the dispatcher removes that entry (auto-cleanup).
-
-### Back-pressure
-`mpsc::channel(capacity)` — capacity is caller-provided. The dispatcher always uses `send().await`,
-which blocks the recv loop when the channel is full. This naturally throttles the WebSocket reader
-and applies back-pressure all the way to the TCP receive buffer — the safe, non-lossy choice.
-
----
-
-## Implementation Phases
-
-### Phase 1 — Foundation
-- [ ] `Cargo.toml` with all dependencies
-- [ ] `error.rs`
-- [ ] `auth.rs`: `TokenSet`, `OAuthConfig`, `TokenManager` with token refresh
-- [ ] `client.rs`: `SchwabClient` struct + reqwest setup + auth middleware
-- [ ] `models/account.rs`, `models/quotes.rs` (basic types to validate REST calls)
-- [ ] `client.rs`: `get_account_numbers`, `get_quote`, `get_quotes`
-
-### Phase 2 — Full REST API
-- [ ] All remaining models (orders, price history, options, instruments, transactions, market hours, movers)
-- [ ] All remaining client methods
-
-### Phase 3 — Streaming Core
-- [ ] `stream/protocol.rs`: wire types + serialization
-- [ ] `stream/mod.rs`: `StreamClient::connect`, recv_loop task, request/response correlation
-- [ ] `stream/fields.rs`: all field enums with numeric values
-- [ ] Streaming connection test (login/logout)
-
-### Phase 4 — Streaming Services
-- [ ] `models/stream/level_one.rs`: all LevelOne event structs + numeric→field deserialization
-- [ ] `stream/services.rs`: subscribe/add/unsubscribe for all 13 services
-- [ ] `models/stream/chart.rs`, `book.rs`, `screener.rs`, `account_activity.rs`
-
-### Phase 5 — Polish
-- [ ] `tracing` instrumentation throughout
-- [ ] Doc comments on all public items
-- [ ] Integration tests (gated behind `--features integration` + env var for credentials)
-- [ ] Example binaries in `examples/`
+- **Send serialization**: `Mutex<()>` guards all outbound commands — prevents interleaved request/response frames.
+- **Response correlation**: `Mutex<Option<oneshot::Sender>>` — recv_loop delivers next `response` frame and clears the slot.
+- **Data fan-out**: `HashMap<service, mpsc::Sender<Value>>` — typed converter task per service bridges raw JSON to typed events.
+- **Back-pressure**: `send().await` blocks recv_loop when channel full — throttles all the way to TCP receive buffer, non-lossy.
 
 ---
 
@@ -531,62 +347,48 @@ and applies back-pressure all the way to the TCP receive buffer — the safe, no
 - REST: `https://api.schwabapi.com/marketdata/v1/` (market data)
 - REST: `https://api.schwabapi.com/trader/v1/` (trading/accounts)
 - OAuth: `https://api.schwabapi.com/v1/oauth/`
-- Streaming: obtained dynamically from `GET /trader/v1/userPreference` → `streamerInfo[0].streamerSocketUrl`
+- Streaming: dynamic — from `GET /trader/v1/userPreference` → `streamerInfo[0].streamerSocketUrl`
 
-### WebSocket Login Credential Sources
-All from `GET /trader/v1/userPreference` response `streamerInfo[0]`:
-- `streamerSocketUrl` — WSS URL
-- `schwabClientCorrelId` — sent in every request
-- `schwabClientCustomerId` — sent in every request
-- `schwabClientChannel` — sent in LOGIN parameters
-- `schwabClientFunctionId` — sent in LOGIN parameters
-
-The `Authorization` parameter in LOGIN is the current access token string.
+### WebSocket Login Credentials
+From `GET /trader/v1/userPreference` response `streamerInfo[0]`:
+`streamerSocketUrl`, `schwabClientCorrelId`, `schwabClientCustomerId`,
+`schwabClientChannel`, `schwabClientFunctionId`.
 
 ### Numeric Field Keys
-Schwab streaming sends updates as objects with **string-numeric keys**: `{"0": "AAPL", "1": 150.25}`.
-The key `"0"` is always the symbol (used as the routing key). All other keys are optional.
-Deserialization must use a `Visitor` that matches string keys `"0"`..`"N"` to struct fields.
+Schwab streaming sends `{"0": "AAPL", "1": 150.25}` — string-numeric keys, partial updates only.
 
-### Partial Updates
-Streaming data messages contain **only changed fields**. Event structs must use `Option<T>` for every non-symbol field. Callers who need a full state snapshot must maintain their own state map and merge incoming updates.
-
-### Timestamp Fields
-Fields ending in `_MILLIS` (e.g., `QUOTE_TIME_MILLIS`) are Unix millisecond timestamps.
-Convert to `DateTime<Utc>` using `chrono::DateTime::from_timestamp_millis`.
-
-### Rate Limits / Token Refresh
-The Schwab access token expires in 30 minutes. `TokenManager::get_valid_token` refreshes if within 60 seconds of expiry. The reqwest client middleware calls this before every request.
-
-### Account Hash vs Account Number
-Schwab's API requires the **account hash** (not the raw account number) for most account-specific endpoints. `get_account_numbers()` returns the mapping.
+### Account Hash
+Most endpoints require the account **hash** (not number). Obtained from `get_account_numbers()`.
 
 ---
 
-## Example Usage (target API shape)
+## Example Usage
 
 ```rust
-// Auth
-let config = OAuthConfig { app_key: "...", app_secret: "...", redirect_uri: "https://127.0.0.1" };
-let tokens = TokenManager::load_or_authorize(&config, Path::new("tokens.json")).await?;
+let config = OAuthConfig {
+    app_key:       "...".to_string(),
+    app_secret:    "...".to_string(),
+    redirect_uri:  "https://127.0.0.1:8443".to_string(),
+    tls_cert_path: "cert.pem".into(),
+    tls_key_path:  "key.pem".into(),
+};
 
-// REST
+// First run: prints URL, waits for redirect, saves tokens.json
+// Subsequent runs: loads tokens.json silently
+let tokens = TokenManager::create(config, Path::new("tokens.json")).await?;
+
 let client = SchwabClient::new(Arc::clone(&tokens));
-let accounts = client.get_account_numbers().await?;
-let quote = client.get_quote("AAPL", None).await?;
+let quotes = client.get_quotes(&["AAPL"], None, None).await?;
 
-// Streaming — Arc<StreamClient>; connection lives as long as any clone exists
 let prefs = client.get_user_preferences().await?;
-let stream = StreamClient::connect(Arc::clone(&tokens), prefs).await?;  // Arc<StreamClient>
+let stream = StreamClient::connect(Arc::clone(&tokens), prefs).await?;
 
 let mut rx = stream
     .level_one_equities()
-    .subscribe(&["AAPL", "MSFT", "NVDA"], &LevelOneEquityField::all(), 256)
+    .subscribe(&["AAPL", "MSFT"], &LevelOneEquityField::all(), 256)
     .await?;
 
-tokio::spawn(async move {
-    while let Some(event) = rx.recv().await {
-        println!("{}: bid={:?} ask={:?}", event.symbol, event.bid_price, event.ask_price);
-    }
-});
+while let Some(event) = rx.recv().await {
+    println!("{}: bid={:?} ask={:?}", event.symbol, event.bid_price, event.ask_price);
+}
 ```
