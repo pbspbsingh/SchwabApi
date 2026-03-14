@@ -257,10 +257,18 @@ async fn run_session(
         inner.send_subs(sub.service, &sub.keys, &sub.fields).await?;
     }
 
-    // 5. Read loop.
+    // 5. Read loop with heartbeat watchdog.
+    //    Schwab sends a heartbeat every ~10 s. If nothing arrives for 15 s
+    //    the connection is considered stuck — drop it and let recv_loop retry.
+    let watchdog = tokio::time::sleep(Duration::from_secs(15));
+    tokio::pin!(watchdog);
+
     loop {
         tokio::select! {
             msg = stream.next() => {
+                // Any frame resets the watchdog.
+                watchdog.as_mut().reset(tokio::time::Instant::now() + Duration::from_secs(15));
+
                 match msg {
                     Some(Ok(Message::Text(text))) => {
                         inner.handle_message(&text).await?;
@@ -279,6 +287,10 @@ async fn run_session(
                         return Err(Error::StreamDisconnected);
                     }
                 }
+            }
+            _ = &mut watchdog => {
+                tracing::warn!("stream: no message received for 15 s, connection assumed stuck");
+                return Err(Error::StreamDisconnected);
             }
             _ = shutdown_rx.changed() => {
                 if *shutdown_rx.borrow() {
