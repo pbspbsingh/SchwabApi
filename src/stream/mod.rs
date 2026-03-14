@@ -108,7 +108,7 @@ impl StreamClientInner {
         {
             let mut sink_guard = self.ws_sink.lock().await;
             if let Some(sink) = sink_guard.as_mut() {
-                sink.send(Message::Text(text)).await?;
+                sink.send(Message::Text(text.into())).await?;
             } else {
                 return Err(Error::StreamDisconnected);
             }
