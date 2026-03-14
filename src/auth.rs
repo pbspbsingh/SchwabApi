@@ -1,14 +1,38 @@
 //! OAuth 2.0 token management for the Schwab API.
 //!
-//! # Flow
-//! 1. Build the authorization URL with [`TokenManager::authorize_url`].
-//! 2. Direct the user to that URL; capture the `code` query parameter from the redirect.
-//! 3. Call [`TokenManager::exchange_code`] to receive a [`TokenSet`].
-//! 4. Construct a [`TokenManager`] via [`TokenManager::new`] and pass it to
-//!    [`SchwabClient`][crate::SchwabClient] and [`StreamClient`][crate::StreamClient].
-//! 5. Persist tokens with [`TokenManager::save`] and restore them with [`TokenManager::load`].
+//! # First-time setup
+//! ```no_run
+//! # async fn example() -> schwab_api::Result<()> {
+//! use schwab_api::auth::{OAuthConfig, TokenManager};
+//! use std::path::Path;
+//!
+//! let config = OAuthConfig {
+//!     app_key:      "your_app_key".to_string(),
+//!     app_secret:   "your_app_secret".to_string(),
+//!     redirect_uri: "https://127.0.0.1".to_string(),
+//! };
+//!
+//! let manager = TokenManager::new(config, Path::new("tokens.json"));
+//! println!("Visit: {}", manager.authorize_url());
+//! // paste the `code` query parameter from the redirect URL:
+//! manager.exchange_code("paste-code-here").await?;
+//! // tokens.json is now saved automatically
+//! # Ok(()) }
+//! ```
+//!
+//! # Subsequent runs
+//! ```no_run
+//! # async fn example() -> schwab_api::Result<()> {
+//! use schwab_api::auth::{OAuthConfig, TokenManager};
+//! use std::path::Path;
+//!
+//! let config = OAuthConfig { /* ... */ # app_key: String::new(), app_secret: String::new(), redirect_uri: String::new() };
+//! let manager = TokenManager::load(config, Path::new("tokens.json"))?;
+//! // tokens are loaded and will refresh automatically
+//! # Ok(()) }
+//! ```
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
@@ -18,9 +42,9 @@ use tokio::sync::RwLock;
 use crate::error::{Error, Result};
 
 const TOKEN_ENDPOINT: &str = "https://api.schwabapi.com/v1/oauth/token";
-const AUTH_ENDPOINT: &str = "https://api.schwabapi.com/v1/oauth/authorize";
+const AUTH_ENDPOINT:  &str = "https://api.schwabapi.com/v1/oauth/authorize";
 
-// ── OAuth configuration ────────────────────────────────────────────────────
+// ── OAuth configuration ───────────────────────────────────────────────────────
 
 /// Application credentials registered in the Schwab developer portal.
 #[derive(Debug, Clone)]
@@ -29,64 +53,88 @@ pub struct OAuthConfig {
     pub app_key: String,
     /// The application secret (client_secret).
     pub app_secret: String,
-    /// The redirect URI registered for this application.
+    /// The redirect URI registered for this application (must be `https://127.0.0.1`).
     pub redirect_uri: String,
 }
 
-// ── Token set ─────────────────────────────────────────────────────────────
+// ── TokenSet (internal) ───────────────────────────────────────────────────────
 
-/// A set of OAuth tokens along with their expiry times.
-///
-/// Serialized to/from JSON for file-based persistence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenSet {
-    /// Bearer token for API requests (TTL ~30 min).
-    pub access_token: String,
-    /// Token used to obtain new access tokens (TTL ~7 days).
-    pub refresh_token: String,
-    /// UTC instant at which `access_token` expires.
-    pub expires_at: DateTime<Utc>,
-    /// UTC instant at which `refresh_token` expires.
-    pub refresh_expires_at: DateTime<Utc>,
+struct TokenSet {
+    access_token:        String,
+    refresh_token:       String,
+    expires_at:          DateTime<Utc>,
+    refresh_expires_at:  DateTime<Utc>,
 }
 
-// ── Raw token response from the Schwab OAuth endpoint ─────────────────────
+// ── Raw token response from Schwab OAuth endpoint ────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct RawTokenResponse {
-    access_token: String,
-    refresh_token: Option<String>,
-    expires_in: i64,          // seconds until access token expiry
+    access_token:             Option<String>,
+    refresh_token:            Option<String>,
+    expires_in:               Option<i64>,
     refresh_token_expires_in: Option<i64>,
-    token_type: String,
-    // error fields (present on failure)
-    error: Option<String>,
-    error_description: Option<String>,
+    error:                    Option<String>,
+    error_description:        Option<String>,
 }
 
-// ── Token manager ─────────────────────────────────────────────────────────
+// ── TokenManager ─────────────────────────────────────────────────────────────
 
-/// Manages OAuth token storage and automatic refresh.
+/// Manages OAuth tokens for the Schwab API.
 ///
-/// Construct via [`TokenManager::new`] and share across the application using
-/// `Arc<TokenManager>`.
+/// Tokens are persisted automatically to the file provided at construction.
+/// Access tokens are refreshed transparently before expiry; no manual token
+/// handling is required.
+///
+/// Share across the application via `Arc<TokenManager>`.
 pub struct TokenManager {
-    config: OAuthConfig,
-    tokens: RwLock<TokenSet>,
-    http: reqwest::Client,
+    config:     OAuthConfig,
+    token_path: PathBuf,
+    tokens:     RwLock<Option<TokenSet>>,
+    http:       reqwest::Client,
 }
 
 impl TokenManager {
-    /// Create a new manager from a loaded/exchanged [`TokenSet`].
-    pub fn new(config: OAuthConfig, tokens: TokenSet) -> Arc<Self> {
+    /// Create a new manager for **first-time setup**.
+    ///
+    /// No token file is required to exist yet. Call [`authorize_url`][Self::authorize_url]
+    /// to get the login URL, then [`exchange_code`][Self::exchange_code] to complete
+    /// authorization. Tokens are saved to `token_path` automatically.
+    pub fn new(config: OAuthConfig, token_path: &Path) -> Arc<Self> {
         Arc::new(Self {
             config,
-            tokens: RwLock::new(tokens),
+            token_path: token_path.to_path_buf(),
+            tokens: RwLock::new(None),
             http: reqwest::Client::new(),
         })
     }
 
-    /// Build the URL to which the user should be directed to authorize the application.
+    /// Load an existing token file and create a manager ready for immediate use.
+    ///
+    /// Returns an error if the file does not exist or cannot be parsed.
+    /// If the refresh token has expired, an error is returned and the user
+    /// must re-authorize via [`new`][Self::new] + [`exchange_code`][Self::exchange_code].
+    pub fn load(config: OAuthConfig, token_path: &Path) -> Result<Arc<Self>> {
+        let data = std::fs::read(token_path).map_err(|e| Error::Api {
+            status: 0,
+            body: format!("failed to read token file '{}': {e}", token_path.display()),
+        })?;
+        let tokens: TokenSet = serde_json::from_slice(&data)?;
+
+        if tokens.refresh_expires_at < Utc::now() {
+            return Err(Error::TokenExpired);
+        }
+
+        Ok(Arc::new(Self {
+            config,
+            token_path: token_path.to_path_buf(),
+            tokens: RwLock::new(Some(tokens)),
+            http: reqwest::Client::new(),
+        }))
+    }
+
+    /// Build the URL to which the user must navigate to authorize the application.
     pub fn authorize_url(&self) -> String {
         format!(
             "{}?response_type=code&client_id={}&redirect_uri={}",
@@ -98,83 +146,87 @@ impl TokenManager {
         )
     }
 
-    /// Exchange an authorization code for a [`TokenSet`].
+    /// Exchange the authorization code from the OAuth redirect for tokens.
     ///
-    /// The code is the `code` query parameter from the OAuth redirect.
-    pub async fn exchange_code(&self, code: &str) -> Result<TokenSet> {
+    /// The code is the `code` query parameter in the redirect URL.
+    /// Tokens are saved to the token file automatically.
+    pub async fn exchange_code(&self, code: &str) -> Result<()> {
         let params = [
-            ("grant_type", "authorization_code"),
-            ("code", code),
-            ("redirect_uri", &self.config.redirect_uri),
+            ("grant_type",    "authorization_code"),
+            ("code",          code),
+            ("redirect_uri",  &self.config.redirect_uri),
         ];
         let token_set = self.post_token_request(&params).await?;
-        *self.tokens.write().await = token_set.clone();
-        Ok(token_set)
+        self.store_and_save(token_set).await
     }
 
-    /// Return a valid access token, refreshing it first if it expires within 60 seconds.
+    /// Return a valid access token string, refreshing silently if needed.
+    ///
+    /// Called internally by [`SchwabClient`][crate::SchwabClient] and
+    /// [`StreamClient`][crate::StreamClient]; application code rarely needs
+    /// to call this directly.
     pub async fn get_valid_token(&self) -> Result<String> {
         // Fast path: read lock only.
         {
-            let tokens = self.tokens.read().await;
+            let guard = self.tokens.read().await;
+            let tokens = guard.as_ref().ok_or(Error::TokenExpired)?;
             if tokens.expires_at - Utc::now() > Duration::seconds(60) {
                 return Ok(tokens.access_token.clone());
             }
         }
 
-        // Slow path: need to refresh — take write lock.
-        let mut tokens = self.tokens.write().await;
+        // Slow path: token is expiring — take write lock.
+        let mut guard = self.tokens.write().await;
+        let tokens = guard.as_mut().ok_or(Error::TokenExpired)?;
 
-        // Re-check after acquiring write lock (another task may have already refreshed).
+        // Re-check: another task may have refreshed while we waited.
         if tokens.expires_at - Utc::now() > Duration::seconds(60) {
             return Ok(tokens.access_token.clone());
         }
 
-        // Check that the refresh token itself hasn't expired.
         if tokens.refresh_expires_at < Utc::now() {
             return Err(Error::TokenExpired);
         }
 
         tracing::info!("access token expiring soon, refreshing");
         let refresh_token = tokens.refresh_token.clone();
-        let new_tokens = self
-            .refresh_access_token_with_lock(&refresh_token)
-            .await?;
-
-        // Preserve the original refresh_token if the endpoint didn't return a new one.
+        let new_tokens = self.do_refresh(&refresh_token).await?;
+        let access = new_tokens.access_token.clone();
         *tokens = new_tokens;
-        Ok(tokens.access_token.clone())
+
+        // Persist updated tokens in the background — don't block the caller.
+        let serialized = serde_json::to_string_pretty(&*tokens)?;
+        let path = self.token_path.clone();
+        tokio::spawn(async move {
+            if let Err(e) = tokio::fs::write(&path, serialized).await {
+                tracing::warn!("failed to persist refreshed tokens to '{}': {e}", path.display());
+            }
+        });
+
+        Ok(access)
     }
 
-    /// Serialize the current [`TokenSet`] to a JSON file at `path`.
-    pub async fn save(&self, path: &Path) -> Result<()> {
-        let tokens = self.tokens.read().await;
-        let json = serde_json::to_string_pretty(&*tokens)?;
-        tokio::fs::write(path, json)
+    // ── private helpers ───────────────────────────────────────────────────────
+
+    async fn store_and_save(&self, token_set: TokenSet) -> Result<()> {
+        let serialized = serde_json::to_string_pretty(&token_set)?;
+        tokio::fs::write(&self.token_path, serialized)
             .await
             .map_err(|e| Error::Api {
                 status: 0,
-                body: format!("failed to write token file: {e}"),
+                body: format!(
+                    "failed to write token file '{}': {e}",
+                    self.token_path.display()
+                ),
             })?;
+        *self.tokens.write().await = Some(token_set);
         Ok(())
     }
 
-    /// Deserialize a [`TokenSet`] from a JSON file at `path`.
-    pub fn load(path: &Path) -> Result<TokenSet> {
-        let data = std::fs::read(path).map_err(|e| Error::Api {
-            status: 0,
-            body: format!("failed to read token file: {e}"),
-        })?;
-        let token_set: TokenSet = serde_json::from_slice(&data)?;
-        Ok(token_set)
-    }
-
-    // ── internal helpers ────────────────────────────────────────────────
-
-    async fn refresh_access_token_with_lock(&self, refresh_token: &str) -> Result<TokenSet> {
+    async fn do_refresh(&self, refresh_token: &str) -> Result<TokenSet> {
         let params = [
-            ("grant_type", "refresh_token"),
-            ("refresh_token", refresh_token),
+            ("grant_type",     "refresh_token"),
+            ("refresh_token",  refresh_token),
         ];
         self.post_token_request(&params).await
     }
@@ -190,22 +242,19 @@ impl TokenManager {
 
         let raw: RawTokenResponse = resp.json().await?;
 
-        if let Some(err_code) = raw.error {
+        if let Some(code) = raw.error {
             return Err(Error::OAuth {
-                code: err_code,
+                code,
                 message: raw.error_description.unwrap_or_default(),
             });
         }
 
-        let _ = raw.token_type; // expected "Bearer"
         let now = Utc::now();
-        let token_set = TokenSet {
-            access_token: raw.access_token,
-            refresh_token: raw.refresh_token.unwrap_or_default(),
-            expires_at: now + Duration::seconds(raw.expires_in),
-            refresh_expires_at: now
-                + Duration::seconds(raw.refresh_token_expires_in.unwrap_or(604800)),
-        };
-        Ok(token_set)
+        Ok(TokenSet {
+            access_token:       raw.access_token.unwrap_or_default(),
+            refresh_token:      raw.refresh_token.unwrap_or_default(),
+            expires_at:         now + Duration::seconds(raw.expires_in.unwrap_or(1800)),
+            refresh_expires_at: now + Duration::seconds(raw.refresh_token_expires_in.unwrap_or(604_800)),
+        })
     }
 }

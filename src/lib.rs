@@ -4,7 +4,7 @@ pub mod error;
 pub mod models;
 pub mod stream;
 
-pub use auth::{OAuthConfig, TokenManager, TokenSet};
+pub use auth::{OAuthConfig, TokenManager};
 pub use client::SchwabClient;
 pub use error::{Error, Result};
 pub use stream::StreamClient;
