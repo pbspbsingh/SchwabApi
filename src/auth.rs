@@ -179,8 +179,16 @@ impl TokenManager {
         use tokio::net::TcpListener;
         use tokio_rustls::TlsAcceptor;
 
+        // Ensure the redirect URI ends with '/' — Schwab won't follow the
+        // redirect otherwise.
+        let redirect_uri = if self.config.redirect_uri.ends_with('/') {
+            self.config.redirect_uri.clone()
+        } else {
+            format!("{}/", self.config.redirect_uri)
+        };
+
         // Parse host and port from the redirect URI.
-        let redirect = url::Url::parse(&self.config.redirect_uri).map_err(|e| Error::Api {
+        let redirect = url::Url::parse(&redirect_uri).map_err(|e| Error::Api {
             status: 0,
             body: format!("invalid redirect_uri: {e}"),
         })?;
@@ -218,7 +226,7 @@ impl TokenManager {
             AUTH_ENDPOINT,
             url::form_urlencoded::byte_serialize(self.config.app_key.as_bytes())
                 .collect::<String>(),
-            url::form_urlencoded::byte_serialize(self.config.redirect_uri.as_bytes())
+            url::form_urlencoded::byte_serialize(redirect_uri.as_bytes())
                 .collect::<String>(),
         );
         println!("\nOpen this URL in your browser to authorize:\n\n  {auth_url}\n");
@@ -272,7 +280,7 @@ impl TokenManager {
         let params = [
             ("grant_type",   "authorization_code"),
             ("code",         code.as_str()),
-            ("redirect_uri", self.config.redirect_uri.as_str()),
+            ("redirect_uri", redirect_uri.as_str()),
         ];
         let token_set = self.post_token_request(&params).await?;
         self.store_and_save(token_set).await
