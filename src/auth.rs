@@ -223,38 +223,50 @@ impl TokenManager {
         );
         println!("\nOpen this URL in your browser to authorize:\n\n  {auth_url}\n");
 
-        // Accept exactly one HTTPS connection — the OAuth redirect.
-        let (tcp, _) = listener.accept().await?;
-        let mut tls = acceptor.accept(tcp).await?;
+        // Accept connections in a loop — the browser may fail the TLS handshake
+        // on the first attempt (e.g. untrusted cert) and retry after the user
+        // accepts the certificate warning.
+        let code = loop {
+            let (tcp, _) = listener.accept().await?;
+            let mut tls = match acceptor.accept(tcp).await {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!("TLS handshake failed (browser may need to accept the certificate): {e}");
+                    continue;
+                }
+            };
 
-        // Read the HTTP request and extract the `code` query parameter.
-        let mut buf = vec![0u8; 4096];
-        let n = tls.read(&mut buf).await?;
-        let request = String::from_utf8_lossy(&buf[..n]);
+            // Read the HTTP request and extract the `code` query parameter.
+            let mut buf = vec![0u8; 4096];
+            let n = tls.read(&mut buf).await?;
+            let request = String::from_utf8_lossy(&buf[..n]);
 
-        // First request line: "GET /?code=ABC123&session=XYZ HTTP/1.1"
-        let code = request
-            .lines()
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1))
-            .and_then(|path| path.split_once('?').map(|(_, q)| q))
-            .and_then(|query| {
-                url::form_urlencoded::parse(query.as_bytes())
-                    .find(|(k, _)| k == "code")
-                    .map(|(_, v)| v.into_owned())
-            })
-            .ok_or_else(|| Error::Api {
-                status: 0,
-                body: "OAuth redirect did not contain a `code` parameter".to_string(),
-            })?;
+            // First request line: "GET /?code=ABC123&session=XYZ HTTP/1.1"
+            let Some(code) = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|path| path.split_once('?').map(|(_, q)| q))
+                .and_then(|query| {
+                    url::form_urlencoded::parse(query.as_bytes())
+                        .find(|(k, _)| k == "code")
+                        .map(|(_, v)| v.into_owned())
+                })
+            else {
+                // Could be a browser preflight or favicon request — keep waiting.
+                tracing::debug!("ignoring request without `code` parameter");
+                continue;
+            };
 
-        // Respond so the browser shows a success page.
-        let body = "<html><body><h1>Authorization successful — you can close this tab.</h1></body></html>";
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body.len(), body
-        );
-        let _ = tls.write_all(response.as_bytes()).await;
+            // Respond so the browser shows a success page.
+            let body = "<html><body><h1>Authorization successful — you can close this tab.</h1></body></html>";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(), body
+            );
+            let _ = tls.write_all(response.as_bytes()).await;
+            break code;
+        };
 
         // Exchange the code for tokens.
         let params = [
