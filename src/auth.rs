@@ -77,7 +77,6 @@ pub struct TokenManager {
     config:     OAuthConfig,
     token_path: PathBuf,
     tokens:     RwLock<Option<TokenSet>>,
-    http:       reqwest::Client,
 }
 
 impl TokenManager {
@@ -92,7 +91,6 @@ impl TokenManager {
         let manager = Arc::new(Self {
             token_path: token_path.to_path_buf(),
             tokens: RwLock::new(None),
-            http: reqwest::Client::new(),
             config,
         });
 
@@ -307,8 +305,7 @@ impl TokenManager {
     }
 
     async fn post_token_request(&self, params: &[(&str, &str)]) -> Result<TokenSet> {
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .post(TOKEN_ENDPOINT)
             .basic_auth(&self.config.app_key, Some(&self.config.app_secret))
             .form(params)

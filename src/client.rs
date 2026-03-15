@@ -41,28 +41,20 @@ const MARKETDATA_BASE: &str = "https://api.schwabapi.com/marketdata/v1";
 ///
 /// Create once and clone the `Arc<TokenManager>` reference as needed.
 pub struct SchwabClient {
-    http: reqwest::Client,
     tokens: Arc<TokenManager>,
 }
 
 impl SchwabClient {
     /// Create a new client backed by the given token manager.
     pub fn new(tokens: Arc<TokenManager>) -> Self {
-        Self {
-            http: reqwest::Client::builder()
-                .user_agent("schwab-api-rust/0.1")
-                .build()
-                .expect("failed to build reqwest client"),
-            tokens,
-        }
+        Self { tokens }
     }
 
     // ── private HTTP helpers ───────────────────────────────────────────────
 
     async fn get<T: DeserializeOwned>(&self, url: &str) -> Result<T> {
         let token = self.tokens.get_valid_token().await?;
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .get(url)
             .bearer_auth(&token)
             .send()
@@ -73,8 +65,7 @@ impl SchwabClient {
     #[allow(dead_code)]
     async fn post<B: Serialize, T: DeserializeOwned>(&self, url: &str, body: &B) -> Result<T> {
         let token = self.tokens.get_valid_token().await?;
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .post(url)
             .bearer_auth(&token)
             .json(body)
@@ -86,8 +77,7 @@ impl SchwabClient {
     #[allow(dead_code)]
     async fn post_empty<B: Serialize>(&self, url: &str, body: &B) -> Result<()> {
         let token = self.tokens.get_valid_token().await?;
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .post(url)
             .bearer_auth(&token)
             .json(body)
@@ -98,8 +88,7 @@ impl SchwabClient {
 
     async fn put<B: Serialize>(&self, url: &str, body: &B) -> Result<()> {
         let token = self.tokens.get_valid_token().await?;
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .put(url)
             .bearer_auth(&token)
             .json(body)
@@ -110,8 +99,7 @@ impl SchwabClient {
 
     async fn delete(&self, url: &str) -> Result<()> {
         let token = self.tokens.get_valid_token().await?;
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .delete(url)
             .bearer_auth(&token)
             .send()
@@ -424,8 +412,7 @@ impl SchwabClient {
     pub async fn place_order(&self, account_hash: &str, order: &Order) -> Result<OrderId> {
         let token = self.tokens.get_valid_token().await?;
         let url = format!("{TRADER_BASE}/accounts/{account_hash}/orders");
-        let resp = self
-            .http
+        let resp = crate::http_client()
             .post(&url)
             .bearer_auth(&token)
             .json(order)
