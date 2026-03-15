@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 // ── Outbound ──────────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
-pub(crate) struct WireRequest<'a> {
+pub(super) struct WireRequest<'a> {
     pub requests: Vec<WireRequestItem<'a>>,
 }
 
 #[derive(Serialize)]
-pub(crate) struct WireRequestItem<'a> {
+pub(super) struct WireRequestItem<'a> {
     pub service: &'a str,
     pub requestid: String,
     pub command: &'a str,
@@ -27,14 +27,14 @@ pub(crate) struct WireRequestItem<'a> {
 // ── Inbound ───────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
-pub(crate) struct WireIncoming {
+pub(super) struct WireIncoming {
     pub response: Option<Vec<WireResponse>>,
     pub data: Option<Vec<WireData>>,
     pub notify: Option<Vec<WireNotify>>,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct WireResponse {
+pub(super) struct WireResponse {
     #[allow(dead_code)]
     pub requestid: String,
     #[allow(dead_code)]
@@ -45,13 +45,13 @@ pub(crate) struct WireResponse {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct WireResponseContent {
+pub(super) struct WireResponseContent {
     pub code: i32,
     pub msg: String,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct WireData {
+pub(super) struct WireData {
     pub service: String,
     #[allow(dead_code)]
     pub command: String,
@@ -59,6 +59,6 @@ pub(crate) struct WireData {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct WireNotify {
+pub(super) struct WireNotify {
     pub heartbeat: Option<i64>,
 }

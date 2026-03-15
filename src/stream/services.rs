@@ -71,7 +71,7 @@ pub struct LevelOneEquitySub {
 impl LevelOneEquitySub {
     const SERVICE: &'static str = "LEVELONE_EQUITIES";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -184,7 +184,7 @@ pub struct LevelOneOptionSub {
 impl LevelOneOptionSub {
     const SERVICE: &'static str = "LEVELONE_OPTIONS";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -264,7 +264,7 @@ pub struct LevelOneFuturesSub {
 impl LevelOneFuturesSub {
     const SERVICE: &'static str = "LEVELONE_FUTURES";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -344,7 +344,7 @@ pub struct LevelOneForexSub {
 impl LevelOneForexSub {
     const SERVICE: &'static str = "LEVELONE_FOREX";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -424,7 +424,7 @@ pub struct LevelOneFuturesOptionsSub {
 impl LevelOneFuturesOptionsSub {
     const SERVICE: &'static str = "LEVELONE_FUTURES_OPTIONS";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -504,7 +504,7 @@ pub struct ChartEquitySub {
 impl ChartEquitySub {
     const SERVICE: &'static str = "CHART_EQUITY";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -584,7 +584,7 @@ pub struct ChartFuturesSub {
 impl ChartFuturesSub {
     const SERVICE: &'static str = "CHART_FUTURES";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -664,7 +664,7 @@ pub struct NyseBookSub {
 impl NyseBookSub {
     const SERVICE: &'static str = "NYSE_BOOK";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -744,7 +744,7 @@ pub struct NasdaqBookSub {
 impl NasdaqBookSub {
     const SERVICE: &'static str = "NASDAQ_BOOK";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -824,7 +824,7 @@ pub struct OptionsBookSub {
 impl OptionsBookSub {
     const SERVICE: &'static str = "OPTIONS_BOOK";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -904,7 +904,7 @@ pub struct ScreenerEquitySub {
 impl ScreenerEquitySub {
     const SERVICE: &'static str = "SCREENER_EQUITY";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -986,7 +986,7 @@ pub struct ScreenerOptionSub {
 impl ScreenerOptionSub {
     const SERVICE: &'static str = "SCREENER_OPTION";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 
@@ -1066,7 +1066,7 @@ pub struct AccountActivitySub {
 impl AccountActivitySub {
     const SERVICE: &'static str = "ACCT_ACTIVITY";
 
-    pub(crate) fn new(inner: Arc<StreamClientInner>) -> Self {
+    pub(super) fn new(inner: Arc<StreamClientInner>) -> Self {
         Self { inner }
     }
 

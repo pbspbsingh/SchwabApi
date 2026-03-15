@@ -15,7 +15,7 @@
 //! handles via the service accessor methods (e.g. [`StreamClient::level_one_equities`]).
 
 pub mod fields;
-pub(crate) mod protocol;
+mod protocol;
 pub mod services;
 
 use std::collections::HashMap;
@@ -43,45 +43,45 @@ type WsSink = futures_util::stream::SplitSink<WsStream, Message>;
 
 // ── StreamClientInner ─────────────────────────────────────────────────────────
 
-pub(crate) struct StreamClientInner {
+struct StreamClientInner {
     /// WSS endpoint URL.
-    pub(crate) wss_url: String,
+    wss_url: String,
     /// Schwab client customer ID (from UserPreferences).
-    pub(crate) customer_id: String,
+    customer_id: String,
     /// Schwab correl ID (from UserPreferences).
-    pub(crate) correl_id: String,
+    correl_id: String,
     /// Schwab channel (from UserPreferences).
-    pub(crate) channel: String,
+    channel: String,
     /// Schwab function ID (from UserPreferences).
-    pub(crate) function_id: String,
+    function_id: String,
 
-    pub(crate) tokens: Arc<TokenManager>,
+    tokens: Arc<TokenManager>,
 
     /// Serializes all outbound commands so responses can be correlated.
-    pub(crate) send_lock: Mutex<()>,
+    send_lock: Mutex<()>,
 
     /// The WebSocket sink — locked briefly to write a frame.
-    pub(crate) ws_sink: Mutex<Option<WsSink>>,
+    ws_sink: Mutex<Option<WsSink>>,
 
     /// Pending oneshot for the next expected `response` frame.
-    pub(crate) pending_response: Mutex<Option<oneshot::Sender<Result<WireResponse>>>>,
+    pending_response: Mutex<Option<oneshot::Sender<Result<WireResponse>>>>,
 
     /// Per-service raw data senders (keyed by service name string).
-    pub(crate) senders: Mutex<HashMap<String, mpsc::Sender<serde_json::Value>>>,
+    senders: Mutex<HashMap<String, mpsc::Sender<serde_json::Value>>>,
 
     /// Active subscriptions — replayed on reconnect.
-    pub(crate) active_subs: Mutex<Vec<ActiveSub>>,
+    active_subs: Mutex<Vec<ActiveSub>>,
 
     /// Monotonically-increasing request ID.
-    pub(crate) request_id: AtomicU64,
+    request_id: AtomicU64,
 
     /// Watch channel: send `true` to shut down the recv_loop.
-    pub(crate) shutdown: watch::Sender<bool>,
+    shutdown: watch::Sender<bool>,
 }
 
 impl StreamClientInner {
     /// Build and send a request, then await the response frame.
-    pub(crate) async fn send_request(
+    async fn send_request(
         &self,
         service: &str,
         command: &str,
@@ -118,7 +118,7 @@ impl StreamClientInner {
     }
 
     /// Send the ADMIN/LOGIN message.
-    pub(crate) async fn send_login(&self, token: &str) -> Result<()> {
+    async fn send_login(&self, token: &str) -> Result<()> {
         let params = serde_json::json!({
             "Authorization": token,
             "SchwabClientChannel": self.channel,
@@ -136,7 +136,7 @@ impl StreamClientInner {
     }
 
     /// Send the ADMIN/LOGOUT message (best-effort).
-    pub(crate) async fn send_logout(&self) -> Result<()> {
+    async fn send_logout(&self) -> Result<()> {
         let _ = self
             .send_request("ADMIN", "LOGOUT", serde_json::Value::Object(Default::default()))
             .await;
@@ -144,7 +144,7 @@ impl StreamClientInner {
     }
 
     /// Send a SUBS command for the given service.
-    pub(crate) async fn send_subs(
+    async fn send_subs(
         &self,
         service: &str,
         keys: &[String],
@@ -158,7 +158,7 @@ impl StreamClientInner {
     }
 
     /// Send an ADD command for the given service.
-    pub(crate) async fn send_add(
+    async fn send_add(
         &self,
         service: &str,
         keys: &[String],
@@ -172,7 +172,7 @@ impl StreamClientInner {
     }
 
     /// Send an UNSUBS command for the given service.
-    pub(crate) async fn send_unsubs(
+    async fn send_unsubs(
         &self,
         service: &str,
         keys: &[String],
@@ -184,7 +184,7 @@ impl StreamClientInner {
     }
 
     /// Parse and dispatch an incoming text frame.
-    pub(crate) async fn handle_message(&self, text: &str) -> Result<()> {
+    async fn handle_message(&self, text: &str) -> Result<()> {
         let incoming: WireIncoming = serde_json::from_str(text)?;
 
         if let Some(responses) = incoming.response {
