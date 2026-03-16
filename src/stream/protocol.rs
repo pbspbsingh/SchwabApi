@@ -60,5 +60,6 @@ pub(super) struct WireData {
 
 #[derive(Deserialize)]
 pub(super) struct WireNotify {
-    pub heartbeat: Option<i64>,
+    // Schwab sends the heartbeat timestamp as a JSON string, not an integer.
+    pub heartbeat: Option<serde_json::Value>,
 }

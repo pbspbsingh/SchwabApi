@@ -126,7 +126,9 @@ async fn wire_send(
             parameters,
         }],
     };
-    sink.send(Message::Text(serde_json::to_string(&req)?.into())).await?;
+    let text = serde_json::to_string(&req)?;
+    tracing::trace!("WS >> {text}");
+    sink.send(Message::Text(text.into())).await?;
     Ok(())
 }
 
@@ -137,6 +139,7 @@ async fn wait_rpc_response(stream: &mut WsStreamSplit) -> Result<WireResponse> {
     loop {
         match stream.next().await {
             Some(Ok(Message::Text(text))) => {
+                tracing::trace!("WS << {text}");
                 let incoming: WireIncoming = serde_json::from_str(&text)?;
                 if let Some(mut responses) = incoming.response
                     && let Some(r) = responses.drain(..).next()
@@ -156,6 +159,7 @@ async fn wait_rpc_response(stream: &mut WsStreamSplit) -> Result<WireResponse> {
 
 /// Dispatch an inbound text frame: fire pending reply, forward data, log heartbeats.
 async fn handle_text(text: &str, state: &mut ActorState) -> Result<()> {
+    tracing::trace!("WS << {text}");
     let incoming: WireIncoming = serde_json::from_str(text)?;
 
     if let Some(responses) = incoming.response {
@@ -335,7 +339,7 @@ async fn run_session(
     }
 
     // 4. Main event loop with heartbeat watchdog.
-    //    Schwab sends a heartbeat every ~10 s; if nothing arrives for 15 s the
+    //    Schwab sends a heartbeat every ~10s; if nothing arrives for 15s the
     //    connection is assumed stuck — tear it down and let recv_loop retry.
     let watchdog = tokio::time::sleep(Duration::from_secs(15));
     tokio::pin!(watchdog);
@@ -368,7 +372,7 @@ async fn run_session(
             }
 
             _ = &mut watchdog => {
-                tracing::warn!("stream: no message for 15 s, connection assumed stuck");
+                tracing::warn!("stream: no message for 15s, connection assumed stuck");
                 return Err(Error::StreamDisconnected);
             }
 
