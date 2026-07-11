@@ -30,6 +30,14 @@ use crate::error::{Error, Result};
 const TOKEN_ENDPOINT: &str = "https://api.schwabapi.com/v1/oauth/token";
 const AUTH_ENDPOINT:  &str = "https://api.schwabapi.com/v1/oauth/authorize";
 
+fn normalize_redirect_uri(redirect_uri: &str) -> String {
+    if redirect_uri.ends_with('/') {
+        redirect_uri.to_owned()
+    } else {
+        format!("{redirect_uri}/")
+    }
+}
+
 // ── OAuth configuration ───────────────────────────────────────────────────────
 
 /// Application credentials registered in the Schwab developer portal.
@@ -179,11 +187,7 @@ impl TokenManager {
 
         // Ensure the redirect URI ends with '/' — Schwab won't follow the
         // redirect otherwise.
-        let redirect_uri = if self.config.redirect_uri.ends_with('/') {
-            self.config.redirect_uri.clone()
-        } else {
-            format!("{}/", self.config.redirect_uri)
-        };
+        let redirect_uri = normalize_redirect_uri(&self.config.redirect_uri);
 
         // Parse host and port from the redirect URI.
         let redirect = url::Url::parse(&redirect_uri).map_err(|e| Error::Api {
@@ -330,5 +334,16 @@ impl TokenManager {
                 raw.refresh_token_expires_in.unwrap_or(604_800),
             ),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_redirect_uri;
+
+    #[test]
+    fn redirect_uri_always_has_a_trailing_slash() {
+        assert_eq!(normalize_redirect_uri("https://127.0.0.1:8443"), "https://127.0.0.1:8443/");
+        assert_eq!(normalize_redirect_uri("https://127.0.0.1:8443/"), "https://127.0.0.1:8443/");
     }
 }

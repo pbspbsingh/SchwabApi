@@ -2,6 +2,7 @@ pub mod auth;
 pub mod client;
 pub mod error;
 pub mod models;
+pub mod orders;
 pub mod stream;
 pub mod types;
 

@@ -49,6 +49,10 @@ pub enum Error {
     #[error("Token expired \u{2014} re-authentication required")]
     TokenExpired,
 
+    /// A client-side order specification is invalid.
+    #[error("Invalid order: {0}")]
+    InvalidOrder(String),
+
     /// The Schwab REST API returned a non-2xx HTTP status code.
     #[error("API error: status={status}, body={body}")]
     Api { status: u16, body: String },
