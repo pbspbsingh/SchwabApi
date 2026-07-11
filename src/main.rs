@@ -12,8 +12,6 @@ const TOKEN_FILE: &str = "tokens.json";
 #[tokio::main]
 #[allow(clippy::result_large_err)]
 async fn main() -> schwab_api::Result<()> {
-    tracing_subscriber::fmt::init();
-
     let config = OAuthConfig {
         app_key:       std::env::var("SCHWAB_APP_KEY").expect("SCHWAB_APP_KEY not set"),
         app_secret:    std::env::var("SCHWAB_APP_SECRET").expect("SCHWAB_APP_SECRET not set"),
