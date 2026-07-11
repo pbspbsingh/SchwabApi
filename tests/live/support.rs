@@ -12,7 +12,7 @@ pub fn required(name: &str) -> Result<String> {
     })
 }
 
-pub async fn client() -> Result<SchwabClient> {
+pub async fn tokens() -> Result<Arc<TokenManager>> {
     if env::var("SCHWAB_LIVE_TESTS").as_deref() != Ok("1") {
         return Err(Error::Api {
             status: 0,
@@ -28,6 +28,9 @@ pub async fn client() -> Result<SchwabClient> {
         tls_key_path: required("SCHWAB_TLS_KEY")?.into(),
     };
     let token_path = required("SCHWAB_TOKEN_PATH")?;
-    let tokens = TokenManager::create(config, Path::new(&token_path)).await?;
-    Ok(SchwabClient::new(Arc::clone(&tokens)))
+    TokenManager::create(config, Path::new(&token_path)).await
+}
+
+pub async fn client() -> Result<SchwabClient> {
+    Ok(SchwabClient::new(tokens().await?))
 }
