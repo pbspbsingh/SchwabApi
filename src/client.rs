@@ -379,7 +379,7 @@ impl SchwabClient {
     /// Return the full option chain for a symbol.
     pub async fn get_option_chain(&self, req: OptionChainRequest) -> Result<OptionChain> {
         let encoded =
-            url::form_urlencoded::byte_serialize(req.symbol.as_bytes()).collect::<String>();
+            url::form_urlencoded::byte_serialize(req.symbol.as_ref().as_bytes()).collect::<String>();
         let mut url = format!("{MARKETDATA_BASE}/chains?symbol={encoded}");
         if let Some(ct) = req.contract_type {
             url.push_str(&format!("&contractType={}", ct.as_str()));

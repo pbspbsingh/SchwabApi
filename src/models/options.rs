@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Money, Timestamp};
+use crate::types::{Money, Symbol, Timestamp};
 
 /// Whether to include calls, puts, or both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,9 +147,9 @@ impl OptionStrategy {
 }
 
 /// All parameters for `GET /marketdata/v1/chains`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct OptionChainRequest {
-    pub symbol: String,
+    pub symbol: Symbol,
     pub contract_type: Option<ContractType>,
     pub strike_count: Option<i32>,
     pub include_underlying_quote: Option<bool>,
@@ -168,6 +168,15 @@ pub struct OptionChainRequest {
     pub exp_month: Option<ExpirationMonth>,
     pub option_type: Option<OptionType>,
     pub entitlement: Option<String>,
+}
+
+impl OptionChainRequest {
+    pub fn new(symbol: Symbol) -> Self {
+        Self { symbol, contract_type: None, strike_count: None, include_underlying_quote: None,
+            strategy: None, interval: None, strike: None, range: None, from_date: None,
+            to_date: None, volatility: None, underlying_price: None, interest_rate: None,
+            days_to_expiration: None, exp_month: None, option_type: None, entitlement: None }
+    }
 }
 
 /// A single option contract.
