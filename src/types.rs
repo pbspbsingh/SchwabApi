@@ -33,6 +33,10 @@ impl AsRef<str> for AccountHash {
     fn as_ref(&self) -> &str { &self.0 }
 }
 
+impl fmt::Display for AccountHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
+}
+
 /// UTC timestamp encoded by Schwab as Unix milliseconds or an RFC 3339 string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(pub DateTime<Utc>);

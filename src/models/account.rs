@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::Money;
+use crate::types::{AccountHash, Money};
 
 /// Maps a human-readable account number to the hash value used in API calls.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,7 +11,7 @@ pub struct AccountNumber {
     /// The display account number (e.g. "****1234").
     pub account_number: String,
     /// The opaque hash to pass to account-specific endpoints.
-    pub hash_value: String,
+    pub hash_value: AccountHash,
 }
 
 /// Optional fields to include when fetching account data.

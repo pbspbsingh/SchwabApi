@@ -31,6 +31,7 @@ use crate::models::orders::{GetOrdersRequest, Order, OrderId};
 use crate::models::price_history::{PriceHistory, PriceHistoryRequest};
 use crate::models::quotes::{QuoteFields, QuoteResponse, QuotesMap};
 use crate::models::transactions::{GetTransactionsRequest, Transaction, TransactionId};
+use crate::types::AccountHash;
 
 /// Base URL for trading / account endpoints.
 const TRADER_BASE: &str = "https://api.schwabapi.com/trader/v1";
@@ -145,7 +146,7 @@ impl SchwabClient {
     /// Return details for a single account by its hash.
     pub async fn get_account(
         &self,
-        account_hash: &str,
+        account_hash: &AccountHash,
         fields: Option<AccountFields>,
     ) -> Result<Account> {
         let mut url = format!("{TRADER_BASE}/accounts/{account_hash}");
@@ -473,7 +474,7 @@ impl SchwabClient {
     /// Place a new order for the specified account.
     ///
     /// Returns the assigned order ID extracted from the `Location` header.
-    pub async fn place_order(&self, account_hash: &str, order: &Order) -> Result<OrderId> {
+    pub async fn place_order(&self, account_hash: &AccountHash, order: &Order) -> Result<OrderId> {
         let token = self.tokens.get_valid_token().await?;
         let url = format!("{TRADER_BASE}/accounts/{account_hash}/orders");
         let resp = crate::http_client()
@@ -505,7 +506,7 @@ impl SchwabClient {
     }
 
     /// Fetch a single order by its ID.
-    pub async fn get_order(&self, account_hash: &str, order_id: OrderId) -> Result<Order> {
+    pub async fn get_order(&self, account_hash: &AccountHash, order_id: OrderId) -> Result<Order> {
         self.get(&format!(
             "{TRADER_BASE}/accounts/{account_hash}/orders/{order_id}"
         ))
@@ -515,7 +516,7 @@ impl SchwabClient {
     /// Fetch all orders for one account matching the given filter.
     pub async fn get_orders_for_account(
         &self,
-        account_hash: &str,
+        account_hash: &AccountHash,
         req: GetOrdersRequest,
     ) -> Result<Vec<Order>> {
         let url = build_orders_url(
@@ -535,7 +536,7 @@ impl SchwabClient {
     }
 
     /// Cancel an order by ID.
-    pub async fn cancel_order(&self, account_hash: &str, order_id: OrderId) -> Result<()> {
+    pub async fn cancel_order(&self, account_hash: &AccountHash, order_id: OrderId) -> Result<()> {
         self.delete(&format!(
             "{TRADER_BASE}/accounts/{account_hash}/orders/{order_id}"
         ))
@@ -545,7 +546,7 @@ impl SchwabClient {
     /// Replace (modify) an existing order.
     pub async fn replace_order(
         &self,
-        account_hash: &str,
+        account_hash: &AccountHash,
         order_id: OrderId,
         order: &Order,
     ) -> Result<()> {
@@ -557,7 +558,7 @@ impl SchwabClient {
     }
 
     /// Validate an order without submitting it.
-    pub async fn preview_order(&self, account_hash: &str, order: &Order) -> Result<Order> {
+    pub async fn preview_order(&self, account_hash: &AccountHash, order: &Order) -> Result<Order> {
         self.post(
             &format!("{TRADER_BASE}/accounts/{account_hash}/previewOrder"),
             order,
@@ -570,7 +571,7 @@ impl SchwabClient {
     /// Fetch a single transaction by its ID.
     pub async fn get_transaction(
         &self,
-        account_hash: &str,
+        account_hash: &AccountHash,
         tx_id: TransactionId,
     ) -> Result<Transaction> {
         self.get(&format!(
@@ -582,7 +583,7 @@ impl SchwabClient {
     /// Fetch transactions for an account, optionally filtered.
     pub async fn get_transactions(
         &self,
-        account_hash: &str,
+        account_hash: &AccountHash,
         req: GetTransactionsRequest,
     ) -> Result<Vec<Transaction>> {
         let mut url = format!("{TRADER_BASE}/accounts/{account_hash}/transactions");
