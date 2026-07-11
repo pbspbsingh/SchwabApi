@@ -196,11 +196,11 @@ impl SchwabClient {
     /// Return real-time quotes for multiple symbols.
     pub async fn get_quotes(
         &self,
-        symbols: &[&str],
+        symbols: &[crate::types::Symbol],
         fields: Option<QuoteFields>,
         indicative: Option<bool>,
     ) -> Result<QuotesMap> {
-        let symbols_param = symbols.join(",");
+        let symbols_param = symbols.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(",");
         let encoded =
             url::form_urlencoded::byte_serialize(symbols_param.as_bytes()).collect::<String>();
         let mut url = format!("{MARKETDATA_BASE}/quotes?symbols={encoded}");
