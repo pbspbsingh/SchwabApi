@@ -612,16 +612,21 @@ impl SchwabClient {
     pub async fn get_movers(
         &self,
         index: Index,
-        sort: SortOrder,
-        frequency: MoverFrequency,
+        sort: Option<SortOrder>,
+        frequency: Option<MoverFrequency>,
     ) -> Result<Vec<Mover>> {
-        let url = format!(
-            "{MARKETDATA_BASE}/movers/{}?sort={}&frequency={}",
-            url::form_urlencoded::byte_serialize(index.as_str().as_bytes())
-                .collect::<String>(),
-            sort.as_str(),
-            frequency.as_u32(),
+        let mut url = format!(
+            "{MARKETDATA_BASE}/movers/{}",
+            url::form_urlencoded::byte_serialize(index.as_str().as_bytes()).collect::<String>(),
         );
+        let mut separator = '?';
+        if let Some(sort) = sort {
+            url.push_str(&format!("{separator}sort={}", sort.as_str()));
+            separator = '&';
+        }
+        if let Some(frequency) = frequency {
+            url.push_str(&format!("{separator}frequency={}", frequency.as_u32()));
+        }
         let resp: MoversResponse = self.get(&url).await?;
         Ok(resp.screeners.unwrap_or_default())
     }
@@ -630,18 +635,17 @@ impl SchwabClient {
     pub async fn get_market_hours(
         &self,
         markets: &[Market],
-        date: chrono::NaiveDate,
+        date: Option<chrono::NaiveDate>,
     ) -> Result<MarketHours> {
         let markets_param = markets
             .iter()
             .map(|m| m.as_str())
             .collect::<Vec<_>>()
             .join(",");
-        let url = format!(
-            "{MARKETDATA_BASE}/markets?markets={}&date={}",
-            markets_param,
-            date.format("%Y-%m-%d")
-        );
+        let mut url = format!("{MARKETDATA_BASE}/markets?markets={markets_param}");
+        if let Some(date) = date {
+            url.push_str(&format!("&date={}", date.format("%Y-%m-%d")));
+        }
         self.get(&url).await
     }
 }
