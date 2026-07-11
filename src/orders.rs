@@ -1,6 +1,7 @@
 //! Typed constructors for Schwab order specifications.
 
 use chrono::NaiveDate;
+use std::str::FromStr;
 
 use crate::error::{Error, Result};
 use crate::models::orders::{
@@ -34,6 +35,24 @@ impl OptionSymbol {
         let contract = match self.put_call { PutCall::Put => 'P', PutCall::Call => 'C' };
         let strike = (self.strike * Money::new(1000, 0)).trunc().to_string();
         format!("{:<6}{}{}{:0>8}", self.underlying.0, self.expiration.format("%y%m%d"), contract, strike)
+    }
+
+    pub fn parse_occ_symbol(value: &str) -> Result<Self> {
+        if value.len() < 16 {
+            return Err(Error::InvalidOrder("OCC option symbol is too short".into()));
+        }
+        let (underlying, suffix) = value.split_at(6);
+        let expiration = NaiveDate::parse_from_str(&suffix[..6], "%y%m%d")
+            .map_err(|_| Error::InvalidOrder("invalid OCC expiration date".into()))?;
+        let put_call = match &suffix[6..7] {
+            "P" => PutCall::Put,
+            "C" => PutCall::Call,
+            _ => return Err(Error::InvalidOrder("OCC option symbol must contain P or C".into())),
+        };
+        let strike = Money::from_str(&suffix[7..])
+            .map_err(|_| Error::InvalidOrder("invalid OCC strike".into()))?
+            / Money::new(1000, 0);
+        Self::new(Symbol(underlying.trim_end().to_owned()), expiration, put_call, strike)
     }
 }
 
@@ -201,6 +220,7 @@ mod tests {
     fn builds_occ_option_symbols() {
         let option = OptionSymbol::new(Symbol("SPXW".into()), NaiveDate::from_ymd_opt(2024, 4, 20).unwrap(), PutCall::Call, Decimal::new(5040, 0)).unwrap();
         assert_eq!(option.to_occ_symbol(), "SPXW  240420C05040000");
+        assert_eq!(OptionSymbol::parse_occ_symbol("SPXW  240420C05040000").unwrap(), option);
     }
 
     #[test]
