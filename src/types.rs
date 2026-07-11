@@ -47,7 +47,7 @@ impl<'de> Deserialize<'de> for Symbol {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AccountHash(String);
 
-/// A nine-character CUSIP identifier.
+/// Opaque CUSIP identifier used by instrument lookup.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Cusip(String);
@@ -55,8 +55,8 @@ pub struct Cusip(String);
 impl Cusip {
     pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
         let value = value.into();
-        if value.len() != 9 || !value.chars().all(|character| character.is_ascii_alphanumeric()) {
-            return Err(IdentifierError::new("CUSIP must contain nine alphanumeric characters"));
+        if value.trim().is_empty() || value.chars().any(char::is_control) {
+            return Err(IdentifierError::new("CUSIP must not be empty or contain control characters"));
         }
         Ok(Self(value))
     }
