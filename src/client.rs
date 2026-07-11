@@ -435,9 +435,9 @@ impl SchwabClient {
     /// Return the available option expiration dates for an underlying symbol.
     pub async fn get_option_expiration_chain(
         &self,
-        symbol: &str,
+        symbol: &crate::types::Symbol,
     ) -> Result<OptionExpirationChain> {
-        let encoded = url::form_urlencoded::byte_serialize(symbol.as_bytes()).collect::<String>();
+        let encoded = url::form_urlencoded::byte_serialize(symbol.as_ref().as_bytes()).collect::<String>();
         self.get(&format!("{MARKETDATA_BASE}/expirationchain?symbol={encoded}"))
             .await
     }

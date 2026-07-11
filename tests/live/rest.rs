@@ -26,7 +26,7 @@ async fn read_only_endpoints_deserialize_live_responses() -> Result<()> {
     client.get_price_history_daily(&symbol, Some(10)).await?;
     client.get_price_history_ten_minutes(&symbol, Some(1)).await?;
     client.get_option_chain(OptionChainRequest::new(Symbol::new(symbol.clone()).unwrap())).await?;
-    client.get_option_expiration_chain(&symbol).await?;
+    client.get_option_expiration_chain(&Symbol::new(symbol.clone()).unwrap()).await?;
     client.get_instruments(&[&symbol], Projection::SymbolSearch).await?;
     client.get_movers(Index::Sp500, Some(SortOrder::Volume), Some(MoverFrequency::Zero)).await?;
     client.get_market_hours(&[Market::Equity], Some(Utc::now().date_naive())).await?;
