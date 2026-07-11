@@ -3,11 +3,13 @@ pub mod client;
 pub mod error;
 pub mod models;
 pub mod stream;
+pub mod types;
 
 pub use auth::{OAuthConfig, TokenManager};
 pub use client::SchwabClient;
 pub use error::{Error, Result};
 pub use stream::StreamClient;
+pub use types::{AccountHash, Money, Symbol, Timestamp};
 
 // ── Shared HTTP client ────────────────────────────────────────────────────────
 

@@ -270,3 +270,23 @@ pub struct OptionChain {
     pub call_exp_date_map: Option<HashMap<String, HashMap<String, Vec<OptionContract>>>>,
     pub put_exp_date_map: Option<HashMap<String, HashMap<String, Vec<OptionContract>>>>,
 }
+
+/// An expiration available for an optionable underlying.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionExpiration {
+    pub expiration_date: i64,
+    pub days_to_expiration: i32,
+    pub expiration_type: String,
+    pub standard: bool,
+    pub settlement_type: String,
+    pub option_root: String,
+}
+
+/// Response from `GET /marketdata/v1/expirationchain`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionExpirationChain {
+    pub symbol: String,
+    pub expiration_list: Vec<OptionExpiration>,
+}

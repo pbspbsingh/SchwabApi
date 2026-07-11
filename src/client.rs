@@ -26,7 +26,7 @@ use crate::models::account::{Account, AccountFields, AccountNumber, UserPreferen
 use crate::models::instruments::{Instrument, InstrumentsResponse, Projection};
 use crate::models::market_hours::{Market, MarketHours};
 use crate::models::movers::{Index, Mover, MoverFrequency, MoversResponse, SortOrder};
-use crate::models::options::{OptionChain, OptionChainRequest};
+use crate::models::options::{OptionChain, OptionChainRequest, OptionExpirationChain};
 use crate::models::orders::{GetOrdersRequest, Order, OrderId};
 use crate::models::price_history::{PriceHistory, PriceHistoryRequest};
 use crate::models::quotes::{QuoteFields, QuoteResponse, QuotesMap};
@@ -233,10 +233,10 @@ impl SchwabClient {
             url.push_str(&format!("&frequency={f}"));
         }
         if let Some(sd) = req.start_date {
-            url.push_str(&format!("&startDate={sd}"));
+            url.push_str(&format!("&startDate={}", sd.0.timestamp_millis()));
         }
         if let Some(ed) = req.end_date {
-            url.push_str(&format!("&endDate={ed}"));
+            url.push_str(&format!("&endDate={}", ed.0.timestamp_millis()));
         }
         if let Some(ext) = req.need_extended_hours_data {
             url.push_str(&format!("&needExtendedHoursData={ext}"));
@@ -377,6 +377,16 @@ impl SchwabClient {
         self.get(&url).await
     }
 
+    /// Return the available option expiration dates for an underlying symbol.
+    pub async fn get_option_expiration_chain(
+        &self,
+        symbol: &str,
+    ) -> Result<OptionExpirationChain> {
+        let encoded = url::form_urlencoded::byte_serialize(symbol.as_bytes()).collect::<String>();
+        self.get(&format!("{MARKETDATA_BASE}/expirationchain?symbol={encoded}"))
+            .await
+    }
+
     // ── Instruments ───────────────────────────────────────────────────────
 
     /// Search for instruments by symbol or description.
@@ -487,6 +497,15 @@ impl SchwabClient {
     ) -> Result<()> {
         self.put(
             &format!("{TRADER_BASE}/accounts/{account_hash}/orders/{order_id}"),
+            order,
+        )
+        .await
+    }
+
+    /// Validate an order without submitting it.
+    pub async fn preview_order(&self, account_hash: &str, order: &Order) -> Result<Order> {
+        self.post(
+            &format!("{TRADER_BASE}/accounts/{account_hash}/previewOrder"),
             order,
         )
         .await

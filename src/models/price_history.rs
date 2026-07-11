@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::types::{Money, Timestamp};
+
 /// Granularity of each candlestick bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,9 +56,9 @@ pub struct PriceHistoryRequest {
     pub frequency_type: Option<FrequencyType>,
     pub frequency: Option<i32>,
     /// Unix milliseconds — start of the desired range.
-    pub start_date: Option<i64>,
+    pub start_date: Option<Timestamp>,
     /// Unix milliseconds — end of the desired range.
-    pub end_date: Option<i64>,
+    pub end_date: Option<Timestamp>,
     /// Include extended-hours bars.
     pub need_extended_hours_data: Option<bool>,
     /// Include previous day's close for percent-change calculation.
@@ -66,13 +68,13 @@ pub struct PriceHistoryRequest {
 /// A single OHLCV bar.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Candle {
-    pub open: f64,
-    pub high: f64,
-    pub low: f64,
-    pub close: f64,
-    pub volume: i64,
+    pub open: Money,
+    pub high: Money,
+    pub low: Money,
+    pub close: Money,
+    pub volume: u64,
     /// Unix millisecond timestamp of the bar's open.
-    pub datetime: i64,
+    pub datetime: Timestamp,
     /// ISO-8601 string representation (optional, included by API).
     #[serde(rename = "datetimeISO8601")]
     pub datetime_iso8601: Option<String>,
@@ -85,8 +87,8 @@ pub struct PriceHistory {
     pub empty: Option<bool>,
     pub candles: Vec<Candle>,
     /// Previous close price (present when `needPreviousClose=true`).
-    pub previous_close: Option<f64>,
+    pub previous_close: Option<Money>,
     /// Timestamp of the previous close.
-    pub previous_close_date: Option<i64>,
+    pub previous_close_date: Option<Timestamp>,
     pub previous_close_date_iso8601: Option<String>,
 }
