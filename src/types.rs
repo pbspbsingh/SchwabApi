@@ -139,4 +139,10 @@ mod tests {
         let text: Timestamp = serde_json::from_str("\"2024-06-13T12:00:00Z\"").unwrap();
         assert_eq!(text.0, Utc.with_ymd_and_hms(2024, 6, 13, 12, 0, 0).unwrap());
     }
+
+    #[test]
+    fn identifiers_reject_invalid_input() {
+        assert!(super::Symbol::new(" ").is_err());
+        assert!(super::AccountHash::new("account hash").is_err());
+    }
 }
