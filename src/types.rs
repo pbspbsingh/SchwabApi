@@ -12,9 +12,18 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub type Money = Decimal;
 
 /// A Schwab instrument symbol.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Symbol(pub String);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Symbol(String);
+
+impl Symbol {
+    pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
+        let value = value.into();
+        if value.trim().is_empty() || value.chars().any(char::is_control) {
+            return Err(IdentifierError("symbol must not be empty or contain control characters"));
+        }
+        Ok(Self(value))
+    }
+}
 
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str { &self.0 }
@@ -24,10 +33,34 @@ impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
 }
 
+impl Serialize for Symbol {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer { serializer.serialize_str(&self.0) }
+}
+
+impl<'de> Deserialize<'de> for Symbol {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
 /// The opaque identifier required by account-specific endpoints.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AccountHash(pub String);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AccountHash(String);
+
+/// Input rejected while constructing a domain identifier.
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("invalid identifier: {0}")]
+pub struct IdentifierError(&'static str);
+
+impl AccountHash {
+    pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
+        let value = value.into();
+        if value.is_empty() || value.chars().any(char::is_whitespace) {
+            return Err(IdentifierError("account hash must not be empty or contain whitespace"));
+        }
+        Ok(Self(value))
+    }
+}
 
 impl AsRef<str> for AccountHash {
     fn as_ref(&self) -> &str { &self.0 }
@@ -35,6 +68,16 @@ impl AsRef<str> for AccountHash {
 
 impl fmt::Display for AccountHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
+}
+
+impl Serialize for AccountHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer { serializer.serialize_str(&self.0) }
+}
+
+impl<'de> Deserialize<'de> for AccountHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
 }
 
 /// UTC timestamp encoded by Schwab as Unix milliseconds or an RFC 3339 string.

@@ -22,7 +22,7 @@ async fn preview_typed_order_without_submission() -> Result<()> {
         body: "the token has no linked accounts".into(),
     })?;
     let symbol = env::var("SCHWAB_LIVE_SYMBOL").unwrap_or_else(|_| "AAPL".into());
-    let order = equity_buy_limit(Symbol(symbol), Decimal::ONE, Decimal::new(1, 2))?;
+    let order = equity_buy_limit(Symbol::new(symbol).map_err(|error| Error::InvalidOrder(error.to_string()))?, Decimal::ONE, Decimal::new(1, 2))?;
 
     client.preview_order(&account.hash_value, &order).await?;
     Ok(())

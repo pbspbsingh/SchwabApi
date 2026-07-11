@@ -53,6 +53,10 @@ pub enum Error {
     #[error("Invalid order: {0}")]
     InvalidOrder(String),
 
+    /// A domain identifier failed validation.
+    #[error(transparent)]
+    InvalidIdentifier(#[from] crate::types::IdentifierError),
+
     /// The Schwab REST API returned a non-2xx HTTP status code.
     #[error("API error: status={status}, body={body}")]
     Api { status: u16, body: String },

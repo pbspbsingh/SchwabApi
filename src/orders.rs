@@ -25,7 +25,7 @@ pub struct OptionSymbol {
 
 impl OptionSymbol {
     pub fn new(underlying: Symbol, expiration: NaiveDate, put_call: PutCall, strike: Money) -> Result<Self> {
-        if underlying.0.is_empty() || underlying.0.len() > 6 || strike <= Money::ZERO {
+        if underlying.as_ref().len() > 6 || strike <= Money::ZERO {
             return Err(Error::InvalidOrder("invalid option symbol components".into()));
         }
         Ok(Self { underlying, expiration, put_call, strike })
@@ -34,7 +34,7 @@ impl OptionSymbol {
     pub fn to_occ_symbol(&self) -> String {
         let contract = match self.put_call { PutCall::Put => 'P', PutCall::Call => 'C' };
         let strike = (self.strike * Money::new(1000, 0)).trunc().to_string();
-        format!("{:<6}{}{}{:0>8}", self.underlying.0, self.expiration.format("%y%m%d"), contract, strike)
+        format!("{:<6}{}{}{:0>8}", self.underlying, self.expiration.format("%y%m%d"), contract, strike)
     }
 
     pub fn parse_occ_symbol(value: &str) -> Result<Self> {
@@ -52,7 +52,7 @@ impl OptionSymbol {
         let strike = Money::from_str(&suffix[7..])
             .map_err(|_| Error::InvalidOrder("invalid OCC strike".into()))?
             / Money::new(1000, 0);
-        Self::new(Symbol(underlying.trim_end().to_owned()), expiration, put_call, strike)
+        Self::new(Symbol::new(underlying.trim_end())?, expiration, put_call, strike)
     }
 }
 
@@ -86,14 +86,14 @@ impl OrderBuilder {
     }
 
     pub fn option_leg(mut self, instruction: Instruction, symbol: OptionSymbol, quantity: Money) -> Result<Self> {
-        self.push_leg(instruction, "OPTION", Symbol(symbol.to_occ_symbol()), quantity)?;
+        self.push_leg(instruction, "OPTION", Symbol::new(symbol.to_occ_symbol())?, quantity)?;
         Ok(self)
     }
 
     fn push_leg(&mut self, instruction: Instruction, asset_type: &str, symbol: Symbol, quantity: Money) -> Result<()> {
         if quantity <= Money::ZERO { return Err(Error::InvalidOrder("leg quantity must be positive".into())); }
         self.order.order_leg_collection.push(OrderLeg {
-            instrument: Some(OrderInstrument { asset_type: Some(asset_type.into()), symbol: Some(symbol.0), ..Default::default() }),
+            instrument: Some(OrderInstrument { asset_type: Some(asset_type.into()), symbol: Some(symbol.to_string()), ..Default::default() }),
             instruction: Some(instruction), quantity: Some(quantity), ..Default::default()
         });
         Ok(())
@@ -211,14 +211,14 @@ mod tests {
 
     #[test]
     fn builds_a_typed_equity_limit_order() {
-        let order = equity_buy_limit(Symbol("AAPL".into()), Decimal::ONE, Decimal::new(18525, 2)).unwrap();
+        let order = equity_buy_limit(Symbol::new("AAPL").unwrap(), Decimal::ONE, Decimal::new(18525, 2)).unwrap();
         assert_eq!(order.order_leg_collection[0].instrument.as_ref().unwrap().asset_type.as_deref(), Some("EQUITY"));
         assert_eq!(order.price, Some(Decimal::new(18525, 2)));
     }
 
     #[test]
     fn builds_occ_option_symbols() {
-        let option = OptionSymbol::new(Symbol("SPXW".into()), NaiveDate::from_ymd_opt(2024, 4, 20).unwrap(), PutCall::Call, Decimal::new(5040, 0)).unwrap();
+        let option = OptionSymbol::new(Symbol::new("SPXW").unwrap(), NaiveDate::from_ymd_opt(2024, 4, 20).unwrap(), PutCall::Call, Decimal::new(5040, 0)).unwrap();
         assert_eq!(option.to_occ_symbol(), "SPXW  240420C05040000");
         assert_eq!(OptionSymbol::parse_occ_symbol("SPXW  240420C05040000").unwrap(), option);
     }
@@ -226,8 +226,8 @@ mod tests {
     #[test]
     fn builds_a_vertical_spread() {
         let expiration = NaiveDate::from_ymd_opt(2024, 4, 20).unwrap();
-        let long = OptionSymbol::new(Symbol("SPXW".into()), expiration, PutCall::Call, Decimal::new(5000, 0)).unwrap();
-        let short = OptionSymbol::new(Symbol("SPXW".into()), expiration, PutCall::Call, Decimal::new(5040, 0)).unwrap();
+        let long = OptionSymbol::new(Symbol::new("SPXW").unwrap(), expiration, PutCall::Call, Decimal::new(5000, 0)).unwrap();
+        let short = OptionSymbol::new(Symbol::new("SPXW").unwrap(), expiration, PutCall::Call, Decimal::new(5040, 0)).unwrap();
         let order = vertical_spread(
             (Instruction::BuyToOpen, long),
             (Instruction::SellToOpen, short),
