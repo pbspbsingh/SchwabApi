@@ -56,6 +56,10 @@ impl OrderBuilder {
     pub fn duration(mut self, value: Duration) -> Self { self.order.duration = value; self }
     pub fn price(mut self, value: Money) -> Self { self.order.price = Some(value); self }
     pub fn quantity(mut self, value: Money) -> Self { self.order.quantity = Some(value); self }
+    pub fn complex_strategy(mut self, value: impl Into<String>) -> Self {
+        self.order.complex_order_strategy_type = Some(value.into());
+        self
+    }
 
     pub fn equity_leg(mut self, instruction: Instruction, symbol: Symbol, quantity: Money) -> Result<Self> {
         self.push_leg(instruction, "EQUITY", symbol, quantity)?;
@@ -108,12 +112,82 @@ pub fn equity_sell_limit(symbol: Symbol, quantity: Money, price: Money) -> Resul
     OrderBuilder::limit(price).equity_leg(Instruction::Sell, symbol, quantity)?.build()
 }
 
+pub fn equity_sell_short_market(symbol: Symbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().equity_leg(Instruction::SellShort, symbol, quantity)?.build()
+}
+
+pub fn equity_sell_short_limit(symbol: Symbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).equity_leg(Instruction::SellShort, symbol, quantity)?.build()
+}
+
+pub fn equity_buy_to_cover_market(symbol: Symbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().equity_leg(Instruction::BuyToCover, symbol, quantity)?.build()
+}
+
+pub fn equity_buy_to_cover_limit(symbol: Symbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).equity_leg(Instruction::BuyToCover, symbol, quantity)?.build()
+}
+
+pub fn option_buy_to_open_market(symbol: OptionSymbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().option_leg(Instruction::BuyToOpen, symbol, quantity)?.build()
+}
+
+pub fn option_buy_to_open_limit(symbol: OptionSymbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).option_leg(Instruction::BuyToOpen, symbol, quantity)?.build()
+}
+
+pub fn option_sell_to_open_market(symbol: OptionSymbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().option_leg(Instruction::SellToOpen, symbol, quantity)?.build()
+}
+
+pub fn option_sell_to_open_limit(symbol: OptionSymbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).option_leg(Instruction::SellToOpen, symbol, quantity)?.build()
+}
+
+pub fn option_buy_to_close_market(symbol: OptionSymbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().option_leg(Instruction::BuyToClose, symbol, quantity)?.build()
+}
+
+pub fn option_buy_to_close_limit(symbol: OptionSymbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).option_leg(Instruction::BuyToClose, symbol, quantity)?.build()
+}
+
+pub fn option_sell_to_close_market(symbol: OptionSymbol, quantity: Money) -> Result<Order> {
+    OrderBuilder::market().option_leg(Instruction::SellToClose, symbol, quantity)?.build()
+}
+
+pub fn option_sell_to_close_limit(symbol: OptionSymbol, quantity: Money, price: Money) -> Result<Order> {
+    OrderBuilder::limit(price).option_leg(Instruction::SellToClose, symbol, quantity)?.build()
+}
+
+/// Build a two-leg vertical option spread. Callers specify the exact instructions
+/// because debit/credit and opening/closing depend on the strategy direction.
+pub fn vertical_spread(
+    first: (Instruction, OptionSymbol),
+    second: (Instruction, OptionSymbol),
+    quantity: Money,
+    price: Money,
+    order_type: OrderType,
+) -> Result<Order> {
+    if !matches!(order_type, OrderType::NetDebit | OrderType::NetCredit) {
+        return Err(Error::InvalidOrder("vertical spreads require NET_DEBIT or NET_CREDIT".into()));
+    }
+    OrderBuilder::new(order_type)
+        .price(price)
+        .quantity(quantity)
+        .complex_strategy("VERTICAL")
+        .option_leg(first.0, first.1, quantity)?
+        .option_leg(second.0, second.1, quantity)?
+        .build()
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::NaiveDate;
     use rust_decimal::Decimal;
 
-    use super::{equity_buy_limit, OptionSymbol, PutCall};
+    use super::{equity_buy_limit, vertical_spread, OptionSymbol, PutCall};
+    use crate::models::orders::{Instruction, OrderType};
     use crate::types::Symbol;
 
     #[test]
@@ -127,5 +201,21 @@ mod tests {
     fn builds_occ_option_symbols() {
         let option = OptionSymbol::new(Symbol("SPXW".into()), NaiveDate::from_ymd_opt(2024, 4, 20).unwrap(), PutCall::Call, Decimal::new(5040, 0)).unwrap();
         assert_eq!(option.to_occ_symbol(), "SPXW  240420C05040000");
+    }
+
+    #[test]
+    fn builds_a_vertical_spread() {
+        let expiration = NaiveDate::from_ymd_opt(2024, 4, 20).unwrap();
+        let long = OptionSymbol::new(Symbol("SPXW".into()), expiration, PutCall::Call, Decimal::new(5000, 0)).unwrap();
+        let short = OptionSymbol::new(Symbol("SPXW".into()), expiration, PutCall::Call, Decimal::new(5040, 0)).unwrap();
+        let order = vertical_spread(
+            (Instruction::BuyToOpen, long),
+            (Instruction::SellToOpen, short),
+            Decimal::ONE,
+            Decimal::new(125, 2),
+            OrderType::NetDebit,
+        ).unwrap();
+        assert_eq!(order.complex_order_strategy_type.as_deref(), Some("VERTICAL"));
+        assert_eq!(order.order_leg_collection.len(), 2);
     }
 }
