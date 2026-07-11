@@ -37,6 +37,12 @@ use crate::models::account::UserPreferences;
 
 use protocol::{WireIncoming, WireRequest, WireRequestItem, WireResponse};
 
+fn command_response_timeout() -> Duration {
+    chrono::Duration::seconds(15)
+        .to_std()
+        .expect("positive command response timeout")
+}
+
 // ── WebSocket type aliases ────────────────────────────────────────────────────
 
 type WsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
@@ -230,7 +236,7 @@ async fn handle_command(
             });
             let sent_id = wire_send(sink, &mut state.request_id, service, "SUBS", params, inner).await?;
             state.pending_request_id = Some(sent_id);
-            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
+            state.pending_deadline = Some(tokio::time::Instant::now() + command_response_timeout());
             state.pending = Some(ActorCommand::Subscribe { service, keys, fields, raw_tx, reply });
         }
         ActorCommand::AddSymbols { service, keys, fields, reply } => {
@@ -244,7 +250,7 @@ async fn handle_command(
             });
             let sent_id = wire_send(sink, &mut state.request_id, service, "ADD", params, inner).await?;
             state.pending_request_id = Some(sent_id);
-            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
+            state.pending_deadline = Some(tokio::time::Instant::now() + command_response_timeout());
             state.pending = Some(ActorCommand::AddSymbols { service, keys, fields, reply });
         }
         ActorCommand::Unsubscribe { service, keys, reply } => {
@@ -255,7 +261,7 @@ async fn handle_command(
             let params = serde_json::json!({ "keys": keys.join(",") });
             let sent_id = wire_send(sink, &mut state.request_id, service, "UNSUBS", params, inner).await?;
             state.pending_request_id = Some(sent_id);
-            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
+            state.pending_deadline = Some(tokio::time::Instant::now() + command_response_timeout());
             state.pending = Some(ActorCommand::Unsubscribe { service, keys, reply });
         }
     }
