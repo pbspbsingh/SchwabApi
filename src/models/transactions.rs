@@ -6,7 +6,18 @@ use serde::{Deserialize, Serialize};
 use crate::types::Money;
 
 /// Opaque transaction identifier.
-pub type TransactionId = i64;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TransactionId(i64);
+
+impl TransactionId {
+    pub fn new(value: i64) -> Result<Self, crate::types::IdentifierError> {
+        if value <= 0 { return Err(crate::types::IdentifierError::new("transaction id must be positive")); }
+        Ok(Self(value))
+    }
+}
+
+impl std::fmt::Display for TransactionId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) } }
 
 /// Transaction type filter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
