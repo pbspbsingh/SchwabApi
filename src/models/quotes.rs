@@ -1,6 +1,7 @@
 //! Quote models for equity, option, forex, future, and index instruments.
 
 use std::collections::HashMap;
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{Money, Timestamp};
@@ -149,18 +150,18 @@ pub struct ExtendedMarket {
 pub struct Fundamental {
     pub avg10_days_volume: Option<Money>,
     pub avg1_year_volume: Option<Money>,
-    pub declaration_date: Option<String>,
+    pub declaration_date: Option<NaiveDate>,
     pub div_amount: Option<Money>,
-    pub div_ex_date: Option<String>,
+    pub div_ex_date: Option<NaiveDate>,
     pub div_freq: Option<i32>,
     pub div_pay_amount: Option<Money>,
-    pub div_pay_date: Option<String>,
+    pub div_pay_date: Option<NaiveDate>,
     pub div_yield: Option<Money>,
     pub eps: Option<Money>,
     pub fund_leverage_factor: Option<Money>,
-    pub last_earnings_date: Option<String>,
-    pub next_div_ex_date: Option<String>,
-    pub next_div_pay_date: Option<String>,
+    pub last_earnings_date: Option<NaiveDate>,
+    pub next_div_ex_date: Option<NaiveDate>,
+    pub next_div_pay_date: Option<NaiveDate>,
     pub pe_ratio: Option<Money>,
 }
 

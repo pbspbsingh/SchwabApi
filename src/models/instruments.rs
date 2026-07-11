@@ -1,6 +1,7 @@
 //! Instrument search and lookup models.
 
 use serde::{Deserialize, Serialize};
+use chrono::NaiveDate;
 
 use crate::types::Money;
 
@@ -62,7 +63,7 @@ pub struct InstrumentFundamental {
     pub low52: Option<Money>,
     pub dividend_amount: Option<Money>,
     pub dividend_yield: Option<Money>,
-    pub dividend_date: Option<String>,
+    pub dividend_date: Option<NaiveDate>,
     pub pe_ratio: Option<Money>,
     pub peg_ratio: Option<Money>,
     pub pb_ratio: Option<Money>,
@@ -98,7 +99,7 @@ pub struct InstrumentFundamental {
     pub short_int_day_to_cover: Option<Money>,
     pub div_growth_rate3_year: Option<Money>,
     pub dividend_pay_amount: Option<Money>,
-    pub dividend_pay_date: Option<String>,
+    pub dividend_pay_date: Option<NaiveDate>,
     pub beta: Option<Money>,
     pub vol1_day_avg: Option<Money>,
     pub vol10_day_avg: Option<Money>,
