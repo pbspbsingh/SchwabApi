@@ -38,9 +38,13 @@ use crate::models::account::UserPreferences;
 use protocol::{WireIncoming, WireRequest, WireRequestItem, WireResponse};
 
 fn command_response_timeout() -> Duration {
-    chrono::Duration::seconds(15)
+    Duration::from_secs(15)
+}
+
+fn inactive_command_deadline() -> Duration {
+    chrono::Duration::days(1)
         .to_std()
-        .expect("positive command response timeout")
+        .expect("positive inactive command deadline")
 }
 
 // ── WebSocket type aliases ────────────────────────────────────────────────────
@@ -425,7 +429,7 @@ async fn run_session(
                 return Err(Error::StreamDisconnected);
             }
 
-            _ = tokio::time::sleep_until(state.pending_deadline.unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(86_400))), if state.pending_deadline.is_some() => {
+            _ = tokio::time::sleep_until(state.pending_deadline.unwrap_or_else(|| tokio::time::Instant::now() + inactive_command_deadline())), if state.pending_deadline.is_some() => {
                 tracing::warn!("stream: command response timed out");
                 return Err(Error::StreamDisconnected);
             }
@@ -518,9 +522,7 @@ async fn recv_loop(
                     .unwrap_or_default()
                     .subsec_nanos();
                 let jitter_ms = (nanos % 400) as u64;
-                tokio::time::sleep(Duration::from_millis(
-                    backoff_secs * 1000 + jitter_ms,
-                )).await;
+                tokio::time::sleep(Duration::from_secs(backoff_secs) + Duration::from_millis(jitter_ms)).await;
                 backoff_secs = (backoff_secs * 2).min(30);
             }
         }
