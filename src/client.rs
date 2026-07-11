@@ -301,6 +301,60 @@ impl SchwabClient {
         .await
     }
 
+    /// Return 10-minute bars for the past `period` trading days.
+    pub async fn get_price_history_ten_minutes(
+        &self,
+        symbol: &str,
+        period: Option<i32>,
+    ) -> Result<PriceHistory> {
+        use crate::models::price_history::{FrequencyType, PeriodType};
+        self.get_price_history(PriceHistoryRequest {
+            symbol: symbol.to_string(),
+            period_type: Some(PeriodType::Day),
+            period,
+            frequency_type: Some(FrequencyType::Minute),
+            frequency: Some(10),
+            ..Default::default()
+        })
+        .await
+    }
+
+    /// Return 15-minute bars for the past `period` trading days.
+    pub async fn get_price_history_fifteen_minutes(
+        &self,
+        symbol: &str,
+        period: Option<i32>,
+    ) -> Result<PriceHistory> {
+        use crate::models::price_history::{FrequencyType, PeriodType};
+        self.get_price_history(PriceHistoryRequest {
+            symbol: symbol.to_string(),
+            period_type: Some(PeriodType::Day),
+            period,
+            frequency_type: Some(FrequencyType::Minute),
+            frequency: Some(15),
+            ..Default::default()
+        })
+        .await
+    }
+
+    /// Return 30-minute bars for the past `period` trading days.
+    pub async fn get_price_history_thirty_minutes(
+        &self,
+        symbol: &str,
+        period: Option<i32>,
+    ) -> Result<PriceHistory> {
+        use crate::models::price_history::{FrequencyType, PeriodType};
+        self.get_price_history(PriceHistoryRequest {
+            symbol: symbol.to_string(),
+            period_type: Some(PeriodType::Day),
+            period,
+            frequency_type: Some(FrequencyType::Minute),
+            frequency: Some(30),
+            ..Default::default()
+        })
+        .await
+    }
+
     /// Return weekly bars for the past `period` years (default 1).
     pub async fn get_price_history_weekly(
         &self,
