@@ -10,7 +10,7 @@ pub use auth::{OAuthConfig, TokenManager};
 pub use client::SchwabClient;
 pub use error::{Error, Result};
 pub use stream::StreamClient;
-pub use types::{AccountHash, Money, Symbol, Timestamp};
+pub use types::{AccountHash, Cusip, Money, Symbol, Timestamp};
 
 // ── Shared HTTP client ────────────────────────────────────────────────────────
 

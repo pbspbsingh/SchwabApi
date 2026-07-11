@@ -47,6 +47,24 @@ impl<'de> Deserialize<'de> for Symbol {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AccountHash(String);
 
+/// A nine-character CUSIP identifier.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Cusip(String);
+
+impl Cusip {
+    pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
+        let value = value.into();
+        if value.len() != 9 || !value.chars().all(|character| character.is_ascii_alphanumeric()) {
+            return Err(IdentifierError::new("CUSIP must contain nine alphanumeric characters"));
+        }
+        Ok(Self(value))
+    }
+}
+
+impl AsRef<str> for Cusip { fn as_ref(&self) -> &str { &self.0 } }
+impl fmt::Display for Cusip { fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) } }
+
 /// Input rejected while constructing a domain identifier.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("invalid identifier: {0}")]

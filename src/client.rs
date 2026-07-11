@@ -461,10 +461,10 @@ impl SchwabClient {
     }
 
     /// Return a single instrument by its CUSIP.
-    pub async fn get_instrument_by_cusip(&self, cusip: &str) -> Result<Instrument> {
+    pub async fn get_instrument_by_cusip(&self, cusip: &crate::types::Cusip) -> Result<Instrument> {
         let url = format!(
             "{MARKETDATA_BASE}/instruments/{}",
-            url::form_urlencoded::byte_serialize(cusip.as_bytes()).collect::<String>()
+            url::form_urlencoded::byte_serialize(cusip.as_ref().as_bytes()).collect::<String>()
         );
         self.get(&url).await
     }
