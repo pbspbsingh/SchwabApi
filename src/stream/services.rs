@@ -68,10 +68,15 @@ macro_rules! impl_subscribe {
 
                 tokio::spawn(async move {
                     while let Some(raw) = raw_rx.recv().await {
-                        if let Ok(event) = <$Event>::try_from(&raw)
-                            && typed_tx.send(event).await.is_err()
-                        {
-                            break;
+                        match <$Event>::try_from(&raw) {
+                            Ok(event) => {
+                                if typed_tx.send(event).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!("failed to parse stream event ({}): {e}", Self::SERVICE);
+                            }
                         }
                     }
                 });

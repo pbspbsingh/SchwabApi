@@ -86,6 +86,9 @@ struct ActorState {
     /// A command whose wire request has been sent but whose response is pending.
     pending:    Option<ActorCommand>,
     request_id: u64,
+    /// The requestid sent with the current pending command, used to validate responses.
+    pending_request_id: Option<u64>,
+    pending_deadline: Option<tokio::time::Instant>,
 }
 
 // ── StreamClientInner (no Mutexes) ───────────────────────────────────────────
@@ -106,6 +109,7 @@ struct StreamClientInner {
 // ── Wire helpers ──────────────────────────────────────────────────────────────
 
 /// Serialise and send one WebSocket request frame.
+/// Returns the requestid that was used for this frame.
 async fn wire_send(
     sink:       &mut WsSink,
     request_id: &mut u64,
@@ -113,7 +117,7 @@ async fn wire_send(
     command:    &str,
     parameters: serde_json::Value,
     inner:      &StreamClientInner,
-) -> Result<()> {
+) -> Result<u64> {
     let id = *request_id;
     *request_id += 1;
     let req = WireRequest {
@@ -129,7 +133,7 @@ async fn wire_send(
     let text = serde_json::to_string(&req)?;
     tracing::trace!("WS >> {text}");
     sink.send(Message::Text(text.into())).await?;
-    Ok(())
+    Ok(id)
 }
 
 /// Read WebSocket frames until a `response` frame arrives.
@@ -164,7 +168,19 @@ async fn handle_text(text: &str, state: &mut ActorState) -> Result<()> {
 
     if let Some(responses) = incoming.response {
         for resp in responses {
+            // Validate that this response belongs to our pending command.
+            if let Some(expected_id) = state.pending_request_id {
+                if resp.requestid != expected_id.to_string() {
+                    tracing::warn!(
+                        "unexpected response requestid={} (expected {}), ignoring",
+                        resp.requestid, expected_id,
+                    );
+                    continue;
+                }
+            }
             if let Some(pending) = state.pending.take() {
+                state.pending_request_id = None;
+                state.pending_deadline = None;
                 complete_pending(pending, resp, state);
             }
         }
@@ -212,7 +228,9 @@ async fn handle_command(
                 "keys":   keys.join(","),
                 "fields": fields.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(","),
             });
-            wire_send(sink, &mut state.request_id, service, "SUBS", params, inner).await?;
+            let sent_id = wire_send(sink, &mut state.request_id, service, "SUBS", params, inner).await?;
+            state.pending_request_id = Some(sent_id);
+            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
             state.pending = Some(ActorCommand::Subscribe { service, keys, fields, raw_tx, reply });
         }
         ActorCommand::AddSymbols { service, keys, fields, reply } => {
@@ -224,7 +242,9 @@ async fn handle_command(
                 "keys":   keys.join(","),
                 "fields": fields.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(","),
             });
-            wire_send(sink, &mut state.request_id, service, "ADD", params, inner).await?;
+            let sent_id = wire_send(sink, &mut state.request_id, service, "ADD", params, inner).await?;
+            state.pending_request_id = Some(sent_id);
+            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
             state.pending = Some(ActorCommand::AddSymbols { service, keys, fields, reply });
         }
         ActorCommand::Unsubscribe { service, keys, reply } => {
@@ -233,7 +253,9 @@ async fn handle_command(
                 return Ok(());
             }
             let params = serde_json::json!({ "keys": keys.join(",") });
-            wire_send(sink, &mut state.request_id, service, "UNSUBS", params, inner).await?;
+            let sent_id = wire_send(sink, &mut state.request_id, service, "UNSUBS", params, inner).await?;
+            state.pending_request_id = Some(sent_id);
+            state.pending_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(15));
             state.pending = Some(ActorCommand::Unsubscribe { service, keys, reply });
         }
     }
@@ -254,7 +276,7 @@ fn complete_pending(pending: ActorCommand, resp: WireResponse, state: &mut Actor
             state.active_subs.push(ActiveSub { service, keys, fields });
             let _ = reply.send(Ok(()));
         }
-        ActorCommand::AddSymbols { service, keys, reply, .. } => {
+        ActorCommand::AddSymbols { service, keys, fields, reply } => {
             if code != 0 {
                 let _ = reply.send(Err(Error::SubscriptionFailed { code, msg }));
                 return;
@@ -262,6 +284,9 @@ fn complete_pending(pending: ActorCommand, resp: WireResponse, state: &mut Actor
             if let Some(sub) = state.active_subs.iter_mut().find(|s| s.service == service) {
                 for key in &keys {
                     if !sub.keys.contains(key) { sub.keys.push(key.clone()); }
+                }
+                for field in &fields {
+                    if !sub.fields.contains(field) { sub.fields.push(*field); }
                 }
             }
             let _ = reply.send(Ok(()));
@@ -296,10 +321,16 @@ fn fail_pending(pending: ActorCommand) {
 
 /// Run one WebSocket session to completion.
 /// Returns `Ok(())` on clean shutdown; `Err` on any connection/protocol error.
+///
+/// `startup_cmd` is an optional `Subscribe` command that was buffered while
+/// waiting for the first subscription (before the initial connection was made).
+/// It is dispatched immediately after login and replay so the subscription is
+/// sent without the caller needing to time anything.
 async fn run_session(
     inner:       &StreamClientInner,
     state:       &mut ActorState,
     cmd_rx:      &mut mpsc::Receiver<ActorCommand>,
+    startup_cmd: Option<ActorCommand>,
     shutdown_rx: &mut watch::Receiver<bool>,
 ) -> Result<()> {
     // 1. Connect.
@@ -315,7 +346,7 @@ async fn run_session(
         "SchwabClientChannel":      inner.channel,
         "SchwabClientFunctionId":   inner.function_id,
     });
-    wire_send(&mut sink, &mut state.request_id, "ADMIN", "LOGIN", login_params, inner).await?;
+    let _ = wire_send(&mut sink, &mut state.request_id, "ADMIN", "LOGIN", login_params, inner).await?;
     let login_resp = wait_rpc_response(&mut stream).await?;
     if login_resp.content.code != 0 {
         return Err(Error::StreamLoginFailed {
@@ -332,13 +363,25 @@ async fn run_session(
             "keys":   sub.keys.join(","),
             "fields": sub.fields.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(","),
         });
-        wire_send(&mut sink, &mut state.request_id, sub.service, "SUBS", params, inner).await?;
-        if let Err(e) = wait_rpc_response(&mut stream).await {
-            tracing::warn!("replay of {} failed: {e}", sub.service);
+        let _ = wire_send(&mut sink, &mut state.request_id, sub.service, "SUBS", params, inner).await?;
+        match wait_rpc_response(&mut stream).await {
+            Ok(resp) if resp.content.code != 0 => {
+                tracing::warn!(
+                    "replay of {} rejected by server: code={} msg={}",
+                    sub.service, resp.content.code, resp.content.msg,
+                );
+            }
+            Ok(_) => tracing::debug!("replay of {} OK", sub.service),
+            Err(e) => tracing::warn!("replay of {} failed: {e}", sub.service),
         }
     }
 
-    // 4. Main event loop with heartbeat watchdog.
+    // 4. Send the startup Subscribe command (buffered before the connection was opened).
+    if let Some(cmd) = startup_cmd {
+        handle_command(cmd, state, &mut sink, inner).await?;
+    }
+
+    // 5. Main event loop with heartbeat watchdog.
     //    Schwab sends a heartbeat every ~10s; if nothing arrives for 15s the
     //    connection is assumed stuck — tear it down and let recv_loop retry.
     let watchdog = tokio::time::sleep(Duration::from_secs(15));
@@ -376,6 +419,11 @@ async fn run_session(
                 return Err(Error::StreamDisconnected);
             }
 
+            _ = tokio::time::sleep_until(state.pending_deadline.unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(86_400))), if state.pending_deadline.is_some() => {
+                tracing::warn!("stream: command response timed out");
+                return Err(Error::StreamDisconnected);
+            }
+
             _ = shutdown_rx.changed() => {
                 if *shutdown_rx.borrow() {
                     tracing::info!("stream: shutdown requested, logging out");
@@ -400,10 +448,12 @@ async fn recv_loop(
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
     let mut state = ActorState {
-        senders:     HashMap::new(),
-        active_subs: Vec::new(),
-        pending:     None,
-        request_id:  0,
+        senders:            HashMap::new(),
+        active_subs:        Vec::new(),
+        pending:            None,
+        request_id:         0,
+        pending_request_id: None,
+        pending_deadline: None,
     };
     let mut backoff_secs: u64 = 1;
 
@@ -412,7 +462,39 @@ async fn recv_loop(
             break;
         }
 
-        match run_session(&inner, &mut state, &mut cmd_rx, &mut shutdown_rx).await {
+        // On the very first connect (no active subscriptions yet), hold off opening
+        // the WebSocket until a Subscribe command arrives.  Schwab drops idle
+        // connections after ~1 min, so there is no point connecting early.
+        // On reconnects active_subs is non-empty and we connect immediately to replay.
+        let startup_cmd: Option<ActorCommand> = if state.active_subs.is_empty() {
+            tracing::debug!("stream: waiting for first subscription before connecting");
+            let cmd = loop {
+                tokio::select! {
+                    biased;
+                    _ = shutdown_rx.changed() => {
+                        if *shutdown_rx.borrow() { break None; }
+                    }
+                    cmd = cmd_rx.recv() => match cmd {
+                        None => break None, // all cmd senders dropped
+                        Some(cmd @ ActorCommand::Subscribe { .. }) => break Some(cmd),
+                        Some(ActorCommand::AddSymbols  { service, reply, .. }) => {
+                            let _ = reply.send(Err(Error::NotSubscribed { service }));
+                        }
+                        Some(ActorCommand::Unsubscribe { service, reply, .. }) => {
+                            let _ = reply.send(Err(Error::NotSubscribed { service }));
+                        }
+                    },
+                }
+            };
+            if cmd.is_none() {
+                break; // shutdown or all senders dropped
+            }
+            cmd
+        } else {
+            None
+        };
+
+        match run_session(&inner, &mut state, &mut cmd_rx, startup_cmd, &mut shutdown_rx).await {
             Ok(()) => {
                 tracing::info!("stream session ended cleanly");
                 break;
