@@ -447,10 +447,10 @@ impl SchwabClient {
     /// Search for instruments by symbol or description.
     pub async fn get_instruments(
         &self,
-        symbols: &[&str],
+        symbols: &[crate::types::Symbol],
         projection: Projection,
     ) -> Result<Vec<Instrument>> {
-        let symbol_param = symbols.join(",");
+        let symbol_param = symbols.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(",");
         let url = format!(
             "{MARKETDATA_BASE}/instruments?symbol={}&projection={}",
             url::form_urlencoded::byte_serialize(symbol_param.as_bytes()).collect::<String>(),
