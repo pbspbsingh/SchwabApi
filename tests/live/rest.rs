@@ -21,7 +21,7 @@ async fn read_only_endpoints_deserialize_live_responses() -> Result<()> {
     client.get_account(account_hash, None).await?;
     client.get_accounts(None).await?;
     client.get_user_preferences().await?;
-    client.get_quote(&symbol, None).await?;
+    client.get_quote(&Symbol::new(symbol.clone()).unwrap(), None).await?;
     client.get_quotes(&[&symbol], None, None).await?;
     client.get_price_history_daily(&symbol, Some(10)).await?;
     client.get_price_history_ten_minutes(&symbol, Some(1)).await?;

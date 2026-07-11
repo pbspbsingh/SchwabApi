@@ -175,10 +175,10 @@ impl SchwabClient {
     /// Return a single real-time quote.
     pub async fn get_quote(
         &self,
-        symbol: &str,
+        symbol: &crate::types::Symbol,
         fields: Option<QuoteFields>,
     ) -> Result<QuoteResponse> {
-        let encoded = url::form_urlencoded::byte_serialize(symbol.as_bytes()).collect::<String>();
+        let encoded = url::form_urlencoded::byte_serialize(symbol.as_ref().as_bytes()).collect::<String>();
         let mut url = format!("{MARKETDATA_BASE}/quotes/{encoded}");
         if let Some(f) = fields {
             url.push_str(&format!("?fields={}", f.as_str()));
