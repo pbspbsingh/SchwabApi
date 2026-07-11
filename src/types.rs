@@ -52,6 +52,10 @@ pub struct AccountHash(String);
 #[error("invalid identifier: {0}")]
 pub struct IdentifierError(&'static str);
 
+impl IdentifierError {
+    pub(crate) const fn new(message: &'static str) -> Self { Self(message) }
+}
+
 impl AccountHash {
     pub fn new(value: impl Into<String>) -> Result<Self, IdentifierError> {
         let value = value.into();

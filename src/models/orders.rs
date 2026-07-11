@@ -6,7 +6,19 @@ use serde::{Deserialize, Serialize};
 use crate::types::Money;
 
 /// Opaque order identifier.
-pub type OrderId = i64;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct OrderId(i64);
+
+impl OrderId {
+    pub fn new(value: i64) -> Result<Self, crate::types::IdentifierError> {
+        if value <= 0 { return Err(crate::types::IdentifierError::new("order id must be positive")); }
+        Ok(Self(value))
+    }
+}
+
+impl std::fmt::Display for OrderId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) } }
+impl std::str::FromStr for OrderId { type Err = crate::types::IdentifierError; fn from_str(value: &str) -> Result<Self, Self::Err> { Self::new(value.parse().map_err(|_| crate::types::IdentifierError::new("invalid order id"))?) } }
 
 /// The primary order type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
