@@ -1,6 +1,7 @@
 //! Market hours models.
 
 use std::collections::HashMap;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A market segment (exchange group) to query hours for.
@@ -28,15 +29,15 @@ impl Market {
 /// A single trading session window.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionHours {
-    pub start: Option<String>,
-    pub end: Option<String>,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
 }
 
 /// Trading hours for one market on one date.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketSession {
-    pub date: Option<String>,
+    pub date: Option<NaiveDate>,
     pub market_type: Option<String>,
     pub exchange: Option<String>,
     pub category: Option<String>,
