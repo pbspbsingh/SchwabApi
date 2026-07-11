@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::types::Money;
+
 /// The index to query movers for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Index {
@@ -87,14 +89,14 @@ pub struct Mover {
     pub symbol: Option<String>,
     pub description: Option<String>,
     pub direction: Option<String>,
-    pub change: Option<f64>,
-    pub last: Option<f64>,
+    pub change: Option<Money>,
+    pub last: Option<Money>,
     pub total_volume: Option<i64>,
     pub volume: Option<i64>,
-    pub net_change: Option<f64>,
-    pub market_share: Option<f64>,
+    pub net_change: Option<Money>,
+    pub market_share: Option<Money>,
     pub trades: Option<i64>,
-    pub net_percent_change: Option<f64>,
+    pub net_percent_change: Option<Money>,
 }
 
 /// Response wrapper for movers.

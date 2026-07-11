@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use rust_decimal::Decimal;
 use schwab_api::auth::{OAuthConfig, TokenManager};
 use schwab_api::models::quotes::QuoteResponse;
 use schwab_api::stream::fields::LevelOneEquityField;
@@ -32,9 +33,9 @@ async fn main() -> schwab_api::Result<()> {
         let quote = q.quote.as_ref();
         println!(
             "AAPL snapshot  bid={:.2}  ask={:.2}  last={:.2}  volume={}",
-            quote.and_then(|q| q.bid_price).unwrap_or(0.0),
-            quote.and_then(|q| q.ask_price).unwrap_or(0.0),
-            quote.and_then(|q| q.last_price).unwrap_or(0.0),
+            quote.and_then(|q| q.bid_price).unwrap_or(Decimal::ZERO),
+            quote.and_then(|q| q.ask_price).unwrap_or(Decimal::ZERO),
+            quote.and_then(|q| q.last_price).unwrap_or(Decimal::ZERO),
             quote.and_then(|q| q.total_volume).unwrap_or(0),
         );
     }

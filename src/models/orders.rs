@@ -3,6 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::types::Money;
+
 /// Opaque order identifier.
 pub type OrderId = i64;
 
@@ -189,7 +191,7 @@ pub struct OrderLeg {
     pub instrument: Option<OrderInstrument>,
     pub instruction: Option<Instruction>,
     pub position_effect: Option<PositionEffect>,
-    pub quantity: Option<f64>,
+    pub quantity: Option<Money>,
     pub quantity_type: Option<String>,
     pub div_cap_gains: Option<String>,
     pub to_symbol: Option<String>,
@@ -204,10 +206,10 @@ pub struct OrderInstrument {
     pub symbol: Option<String>,
     pub description: Option<String>,
     pub instrument_id: Option<i64>,
-    pub net_change: Option<f64>,
+    pub net_change: Option<Money>,
     pub put_call: Option<String>,
     pub underlying_symbol: Option<String>,
-    pub option_multiplier: Option<f64>,
+    pub option_multiplier: Option<Money>,
     pub option_deliverables: Option<Vec<serde_json::Value>>,
 }
 
@@ -218,8 +220,8 @@ pub struct OrderActivity {
     pub activity_type: Option<String>,
     pub activity_id: Option<i64>,
     pub execution_type: Option<String>,
-    pub quantity: Option<f64>,
-    pub order_remaining_quantity: Option<f64>,
+    pub quantity: Option<Money>,
+    pub order_remaining_quantity: Option<Money>,
     pub execution_legs: Option<Vec<ExecutionLeg>>,
 }
 
@@ -228,9 +230,9 @@ pub struct OrderActivity {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionLeg {
     pub leg_id: Option<i64>,
-    pub price: Option<f64>,
-    pub quantity: Option<f64>,
-    pub mismarked_quantity: Option<f64>,
+    pub price: Option<Money>,
+    pub quantity: Option<Money>,
+    pub mismarked_quantity: Option<Money>,
     pub instrument_id: Option<i64>,
     pub time: Option<DateTime<Utc>>,
 }
@@ -248,13 +250,13 @@ pub struct Order {
     pub order_strategy_type: OrderStrategyType,
     pub order_leg_collection: Vec<OrderLeg>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub price: Option<f64>,
+    pub price: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub quantity: Option<f64>,
+    pub quantity: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub filled_quantity: Option<f64>,
+    pub filled_quantity: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub remaining_quantity: Option<f64>,
+    pub remaining_quantity: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<OrderStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -272,13 +274,13 @@ pub struct Order {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub destination_link_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_price: Option<f64>,
+    pub stop_price: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price_link_basis: Option<PriceLinkBasis>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price_link_type: Option<PriceLinkType>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_price_offset: Option<f64>,
+    pub stop_price_offset: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_type: Option<StopType>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -286,13 +288,13 @@ pub struct Order {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub price_link_type: Option<PriceLinkType>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub activation_price: Option<f64>,
+    pub activation_price: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub special_instruction: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tax_lot_method: Option<TaxLotMethod>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub divleg_quantity: Option<f64>,
+    pub divleg_quantity: Option<Money>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub advanced_order_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

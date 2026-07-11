@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::types::Money;
+
 /// Maps a human-readable account number to the hash value used in API calls.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,61 +67,61 @@ pub struct SecuritiesAccount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountBalance {
-    pub cash_balance: Option<f64>,
-    pub accrued_interest: Option<f64>,
-    pub available_funds: Option<f64>,
-    pub available_funds_non_marginable_trade: Option<f64>,
-    pub buying_power: Option<f64>,
-    pub buying_power_non_marginable_trade: Option<f64>,
-    pub day_trading_buying_power: Option<f64>,
-    pub day_trading_buying_power_call: Option<f64>,
-    pub equity: Option<f64>,
-    pub equity_percentage: Option<f64>,
-    pub long_margin_value: Option<f64>,
-    pub maintenance_call: Option<f64>,
-    pub maintenance_requirement: Option<f64>,
-    pub margin: Option<f64>,
-    pub margin_equity: Option<f64>,
-    pub money_market_fund: Option<f64>,
-    pub mutual_fund_value: Option<f64>,
-    pub reg_t_call: Option<f64>,
-    pub short_margin_value: Option<f64>,
-    pub short_option_market_value: Option<f64>,
-    pub short_stock_value: Option<f64>,
-    pub total_cash: Option<f64>,
+    pub cash_balance: Option<Money>,
+    pub accrued_interest: Option<Money>,
+    pub available_funds: Option<Money>,
+    pub available_funds_non_marginable_trade: Option<Money>,
+    pub buying_power: Option<Money>,
+    pub buying_power_non_marginable_trade: Option<Money>,
+    pub day_trading_buying_power: Option<Money>,
+    pub day_trading_buying_power_call: Option<Money>,
+    pub equity: Option<Money>,
+    pub equity_percentage: Option<Money>,
+    pub long_margin_value: Option<Money>,
+    pub maintenance_call: Option<Money>,
+    pub maintenance_requirement: Option<Money>,
+    pub margin: Option<Money>,
+    pub margin_equity: Option<Money>,
+    pub money_market_fund: Option<Money>,
+    pub mutual_fund_value: Option<Money>,
+    pub reg_t_call: Option<Money>,
+    pub short_margin_value: Option<Money>,
+    pub short_option_market_value: Option<Money>,
+    pub short_stock_value: Option<Money>,
+    pub total_cash: Option<Money>,
     pub is_in_call: Option<bool>,
-    pub unsettled_cash: Option<f64>,
-    pub pending_deposits: Option<f64>,
-    pub margin_balance: Option<f64>,
-    pub short_balance: Option<f64>,
-    pub account_value: Option<f64>,
+    pub unsettled_cash: Option<Money>,
+    pub pending_deposits: Option<Money>,
+    pub margin_balance: Option<Money>,
+    pub short_balance: Option<Money>,
+    pub account_value: Option<Money>,
 }
 
 /// A single position held in an account.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
-    pub short_quantity: Option<f64>,
-    pub average_price: Option<f64>,
-    pub current_day_profit_loss: Option<f64>,
-    pub current_day_profit_loss_percentage: Option<f64>,
-    pub long_quantity: Option<f64>,
-    pub settled_long_quantity: Option<f64>,
-    pub settled_short_quantity: Option<f64>,
-    pub agged_long_quantity: Option<f64>,
-    pub agged_short_quantity: Option<f64>,
+    pub short_quantity: Option<Money>,
+    pub average_price: Option<Money>,
+    pub current_day_profit_loss: Option<Money>,
+    pub current_day_profit_loss_percentage: Option<Money>,
+    pub long_quantity: Option<Money>,
+    pub settled_long_quantity: Option<Money>,
+    pub settled_short_quantity: Option<Money>,
+    pub agged_long_quantity: Option<Money>,
+    pub agged_short_quantity: Option<Money>,
     pub instrument: Option<PositionInstrument>,
-    pub market_value: Option<f64>,
-    pub maintenance_requirement: Option<f64>,
-    pub average_long_price: Option<f64>,
-    pub average_short_price: Option<f64>,
-    pub tax_lot_average_long_price: Option<f64>,
-    pub tax_lot_average_short_price: Option<f64>,
-    pub long_open_profit_loss: Option<f64>,
-    pub short_open_profit_loss: Option<f64>,
-    pub previous_session_long_quantity: Option<f64>,
-    pub previous_session_short_quantity: Option<f64>,
-    pub current_day_cost: Option<f64>,
+    pub market_value: Option<Money>,
+    pub maintenance_requirement: Option<Money>,
+    pub average_long_price: Option<Money>,
+    pub average_short_price: Option<Money>,
+    pub tax_lot_average_long_price: Option<Money>,
+    pub tax_lot_average_short_price: Option<Money>,
+    pub long_open_profit_loss: Option<Money>,
+    pub short_open_profit_loss: Option<Money>,
+    pub previous_session_long_quantity: Option<Money>,
+    pub previous_session_short_quantity: Option<Money>,
+    pub current_day_cost: Option<Money>,
 }
 
 /// Instrument details within a position.
@@ -131,7 +133,7 @@ pub struct PositionInstrument {
     pub symbol: Option<String>,
     pub description: Option<String>,
     pub instrument_id: Option<i64>,
-    pub net_change: Option<f64>,
+    pub net_change: Option<Money>,
 }
 
 /// User preferences, including streaming connection details.

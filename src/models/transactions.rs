@@ -3,6 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::types::Money;
+
 /// Opaque transaction identifier.
 pub type TransactionId = i64;
 
@@ -67,11 +69,11 @@ pub struct TransactionInstrument {
     pub symbol: Option<String>,
     pub description: Option<String>,
     pub instrument_id: Option<i64>,
-    pub net_change: Option<f64>,
+    pub net_change: Option<Money>,
     pub put_call: Option<String>,
     pub underlying_symbol: Option<String>,
     pub option_expiration_date: Option<DateTime<Utc>>,
-    pub option_strike_price: Option<f64>,
+    pub option_strike_price: Option<Money>,
     pub type_: Option<String>,
 }
 
@@ -92,7 +94,7 @@ pub struct Transaction {
     pub settlement_date: Option<DateTime<Utc>>,
     pub position_id: Option<i64>,
     pub order_id: Option<i64>,
-    pub net_amount: Option<f64>,
+    pub net_amount: Option<Money>,
     pub activity_type: Option<String>,
     pub transfer_items: Option<Vec<TransferItem>>,
 }
@@ -102,9 +104,9 @@ pub struct Transaction {
 #[serde(rename_all = "camelCase")]
 pub struct TransferItem {
     pub instrument: Option<TransactionInstrument>,
-    pub amount: Option<f64>,
-    pub cost: Option<f64>,
-    pub price: Option<f64>,
+    pub amount: Option<Money>,
+    pub cost: Option<Money>,
+    pub price: Option<Money>,
     pub fee_type: Option<String>,
     pub position_effect: Option<String>,
 }
